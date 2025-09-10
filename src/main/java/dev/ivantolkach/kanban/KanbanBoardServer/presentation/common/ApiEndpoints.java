@@ -4,6 +4,12 @@ public final class ApiEndpoints {
 
     public static final String API_BASE = "/api";
 
+    public static class Authentication {
+        public static final String BASE = API_BASE + "/auth";
+        public static final String SIGN_UP = BASE + "/sign-up";
+        public static final String SIGN_IN = BASE + "/sign-in";
+    }
+
     public static class Project {
         public static final String BASE = API_BASE + "/projects";
         public static final String BY_ID = BASE + "/{projectId}";

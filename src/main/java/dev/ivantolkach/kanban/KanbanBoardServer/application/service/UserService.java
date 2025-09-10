@@ -11,6 +11,8 @@ import dev.ivantolkach.kanban.KanbanBoardServer.infrastructure.mapper.user.UserM
 import dev.ivantolkach.kanban.KanbanBoardServer.infrastructure.persistence.repository.UserRepository;
 import dev.ivantolkach.kanban.KanbanBoardServer.infrastructure.persistence.specification.UserSpecification;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -47,10 +49,6 @@ public class UserService {
 
     public Optional<UserDTOOutput> getUserById(UUID userId) {
         return userRepository.findById(userId).map(userMapper::toDTO);
-    }
-
-    public UserDTOOutput getUserByEmail(String email) {
-        return userMapper.toDTO(userRepository.findByEmail(email));
     }
 
     public UserDTOOutput createUpdateUser(UserDTOInput userDTOInput) {
@@ -109,7 +107,7 @@ public class UserService {
             if (userDTOInput.getPosition() == null || userDTOInput.getPosition().isBlank()) {
                 throw new IllegalArgumentException("Position cannot be empty");
             }
-            if (userRepository.findByEmail(userDTOInput.getEmail()) != null) {
+            if (userRepository.findByEmail(userDTOInput.getEmail()).isPresent()) {
                 throw new IllegalArgumentException("User with the same email already exist");
             }
             if (userDTOInput.getStatus() == EntityStatus.CLOSED) {
@@ -119,7 +117,7 @@ public class UserService {
             user = userMapper.toUser(userDTOInput);
             user.setStatus(userDTOInput.getStatus() != null ? userDTOInput.getStatus() : EntityStatus.CREATED);
             String hashedPassword = passwordEncoder.encode(user.getPassword());
-            user.setRole(UserRole.CLIENT);
+            user.setRole(UserRole.ROLE_CLIENT);
             user.setPassword(hashedPassword);
         }
 
@@ -162,5 +160,20 @@ public class UserService {
         }
 
         throw new IllegalStateException("Cant delete user with id: " + userId);
+    }
+
+    public User getByEmail(String email) {
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("User not found with email: " + email));
+
+    }
+
+    public UserDetailsService userDetailsService() {
+        return this::getByEmail;
+    }
+
+    public User getCurrentUser() {
+        var username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return getByEmail(username);
     }
 }

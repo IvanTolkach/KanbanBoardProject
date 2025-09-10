@@ -41,7 +41,7 @@ public abstract class BaseEntity {
     @PrePersist
     public void prePersist() {
         if (this instanceof User user && user.getRole() == null) {
-            user.setRole(UserRole.CLIENT);
+            user.setRole(UserRole.ROLE_CLIENT);
             user.setStatus(EntityStatus.CREATED);
         } else if (this instanceof Project project && project.getStatus() == null) {
             project.setStatus(EntityStatus.CREATED);

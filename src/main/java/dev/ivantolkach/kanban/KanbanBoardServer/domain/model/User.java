@@ -8,10 +8,14 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
 
 import java.time.LocalDate;
+import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
-
 
 @Entity
 @EntityListeners(AuditingEntityListener.class)
@@ -20,7 +24,7 @@ import java.util.UUID;
 @AllArgsConstructor
 @NoArgsConstructor
 @Table(name = "App_User")
-public class User extends BaseEntity {
+public class User extends BaseEntity implements UserDetails {
     @Id
     @Column(name = "id", updatable = false, nullable = false)
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -48,8 +52,38 @@ public class User extends BaseEntity {
     private String password;
 
     @Column(name = "role", nullable = false)
-    private UserRole role = UserRole.CLIENT;
+    private UserRole role = UserRole.ROLE_CLIENT;
 
     @Column(name = "status", nullable = false)
     private EntityStatus status = EntityStatus.ACTIVE;
+
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        return List.of(new SimpleGrantedAuthority(role.name()));
+    }
+
+    @Override
+    public String getUsername() {
+        return getEmail();
+    }
+
+    @Override
+    public boolean isAccountNonExpired() {
+        return UserDetails.super.isAccountNonExpired();
+    }
+
+    @Override
+    public boolean isAccountNonLocked() {
+        return UserDetails.super.isAccountNonLocked();
+    }
+
+    @Override
+    public boolean isCredentialsNonExpired() {
+        return UserDetails.super.isCredentialsNonExpired();
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return getStatus() != EntityStatus.RESTRICTED;
+    }
 }

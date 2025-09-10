@@ -1,6 +1,7 @@
 package dev.ivantolkach.kanban.KanbanBoardServer.presentation.rest;
 
 import dev.ivantolkach.kanban.KanbanBoardServer.application.service.exception.NotFoundException;
+import dev.ivantolkach.kanban.KanbanBoardServer.application.service.exception.UnauthorizedException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -26,5 +27,10 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<String> handleRuntimeException(RuntimeException e) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+    }
+
+    @ExceptionHandler(UnauthorizedException.class)
+    public ResponseEntity<String> handleUnauthorizedException(RuntimeException e) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(e.getMessage());
     }
 }

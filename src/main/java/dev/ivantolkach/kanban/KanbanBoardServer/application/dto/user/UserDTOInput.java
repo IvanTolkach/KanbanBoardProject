@@ -5,6 +5,7 @@ import dev.ivantolkach.kanban.KanbanBoardServer.domain.common.enums.UserRole;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
@@ -26,10 +27,12 @@ public class UserDTOInput {
 
     private String lname;
 
+    @NotBlank(message = "Email address cannot be empty")
     @Email(message = "Invalid email format")
     private String email;
 
     @Size(min = 8, message = "Password must include at least 8 symbols")
+    @Size(max = 255, message = "The password length must be no more than 255 characters")
     private String password;
 
     @Enumerated(EnumType.ORDINAL)

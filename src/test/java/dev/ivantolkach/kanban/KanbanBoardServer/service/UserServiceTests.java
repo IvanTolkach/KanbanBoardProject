@@ -99,11 +99,11 @@ class UserServiceTests {
         user.setEmail("billy.herrington@example.com");
         user.setPassword("password123");
         user.setPosition("Developer");
-        user.setRole(UserRole.CLIENT);
+        user.setRole(UserRole.ROLE_CLIENT);
         user.setStatus(EntityStatus.ACTIVE);
         UserDTOOutput expectedDTO = new UserDTOOutput();
 
-        when(userRepository.findByEmail("billy.herrington@example.com")).thenReturn(null);
+        when(userRepository.findByEmail("billy.herrington@example.com")).thenReturn(Optional.empty());
         when(userMapper.toUser(input)).thenReturn(user);
         when(passwordEncoder.encode("password123")).thenReturn("hashedPassword");
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
@@ -116,7 +116,7 @@ class UserServiceTests {
         UserDTOOutput result = userService.createUpdateUser(input);
 
         assertEquals(expectedDTO, result);
-        assertEquals(UserRole.CLIENT, user.getRole());
+        assertEquals(UserRole.ROLE_CLIENT, user.getRole());
         assertEquals("hashedPassword", user.getPassword());
         verify(userRepository).findByEmail("billy.herrington@example.com");
         verify(userMapper).toUser(input);
@@ -222,7 +222,7 @@ class UserServiceTests {
         User existingUser = new User();
         existingUser.setEmail("billy.herrington@example.com");
 
-        when(userRepository.findByEmail("billy.herrington@example.com")).thenReturn(existingUser);
+        when(userRepository.findByEmail("billy.herrington@example.com")).thenReturn(Optional.of(existingUser));
 
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                 () -> userService.createUpdateUser(input));
@@ -244,7 +244,7 @@ class UserServiceTests {
         input.setPosition("Developer");
         input.setStatus(EntityStatus.CLOSED);
 
-        when(userRepository.findByEmail("billy.herrington@example.com")).thenReturn(null);
+        when(userRepository.findByEmail("billy.herrington@example.com")).thenReturn(Optional.empty());
 
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                 () -> userService.createUpdateUser(input));
