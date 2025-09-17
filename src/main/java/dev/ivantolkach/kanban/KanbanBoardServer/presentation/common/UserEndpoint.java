@@ -16,6 +16,9 @@ public interface UserEndpoint {
             @RequestBody UserFilterDTO filter
     );
 
+    @GetMapping(ApiEndpoints.User.CURRENT_USER)
+    UserDTOOutput getCurrentUser();
+
     @PutMapping(ApiEndpoints.User.BASE)
     ResponseEntity<UserDTOOutput> createUpdateUser(
             @Valid @RequestBody UserDTOInput user

@@ -40,6 +40,7 @@ public final class ApiEndpoints {
 
     public static class User {
         public static final String BASE = API_BASE + "/users";
+        public static final String CURRENT_USER = BASE + "/current";
         public static final String BY_ID = BASE + "/{userId}";
         public static final String CHANGE_PASSWORD = BY_ID + "/password";
     }
