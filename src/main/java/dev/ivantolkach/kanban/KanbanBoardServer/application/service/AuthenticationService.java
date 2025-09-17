@@ -29,7 +29,7 @@ public class AuthenticationService {
 
         var userDto = new UserDTOInput();
         userDto.setEmail(request.getEmail());
-        userDto.setPassword(passwordEncoder.encode(request.getPassword()));
+        userDto.setPassword(request.getPassword());
         userDto.setFname(request.getFname());
         userDto.setSname(request.getSname());
         userDto.setLname(request.getLname());
