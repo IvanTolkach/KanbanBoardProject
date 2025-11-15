@@ -27,7 +27,6 @@ public class UserDTOInput {
 
     private String lname;
 
-    @NotBlank(message = "Email address cannot be empty")
     @Email(message = "Invalid email format")
     private String email;
 
@@ -43,6 +42,5 @@ public class UserDTOInput {
 
     private LocalDate birthDate;
 
-    @NotEmpty(message = "Position cannot be empty")
     private String position;
 }

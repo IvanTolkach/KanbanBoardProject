@@ -4,7 +4,9 @@ import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.project.ProjectD
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.project.ProjectDTOOutput;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.project.ProjectFilterDTO;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.service.exception.NotFoundException;
+import dev.ivantolkach.kanban.KanbanBoardServer.application.service.exception.UnauthorizedException;
 import dev.ivantolkach.kanban.KanbanBoardServer.domain.common.enums.EntityStatus;
+import dev.ivantolkach.kanban.KanbanBoardServer.domain.common.enums.UserRole;
 import dev.ivantolkach.kanban.KanbanBoardServer.domain.model.Project;
 import dev.ivantolkach.kanban.KanbanBoardServer.domain.model.ProjectColumn;
 import dev.ivantolkach.kanban.KanbanBoardServer.domain.model.Task;
@@ -44,6 +46,9 @@ public class ProjectService {
     @Autowired
     TaskRepository taskRepository;
 
+    @Autowired
+    UserService userService;
+
     public boolean existsById(UUID projectId) {
         return projectRepository.existsById(projectId);
     }
@@ -82,7 +87,15 @@ public class ProjectService {
             project = projectRepository.findById(projectDTOInput.getId())
                     .orElseThrow(() -> new NotFoundException("Project not found with id: " + projectDTOInput.getId()));
 
-            if (project.getStatus() == EntityStatus.CLOSED && projectDTOInput.getStatus() != EntityStatus.ACTIVE) {
+            User currentUser = userService.getCurrentUser();
+
+            if (!(currentUser.getRole() == UserRole.ROLE_ADMIN)) {
+                if (!(project.getCreatedBy().getId().equals(currentUser.getId()))) {
+                    throw new UnauthorizedException("Not allowed to edit this entity");
+                }
+            }
+
+            if (project.getStatus() == EntityStatus.CLOSED) {
                 throw new IllegalStateException("Cannot update closed project. Project id: " + projectDTOInput.getId());
             }
 
@@ -132,6 +145,14 @@ public class ProjectService {
     public void deleteProject(UUID projectId) {
         Project existingProject = projectRepository.findById(projectId)
                 .orElseThrow(()->new NotFoundException("Project not found with id: " + projectId));
+
+        User currentUser = userService.getCurrentUser();
+
+        if (!(currentUser.getRole() == UserRole.ROLE_ADMIN)) {
+            if (!(existingProject.getCreatedBy().getId().equals(currentUser.getId()))) {
+                throw new UnauthorizedException("Not allowed to delete this entity");
+            }
+        }
 
         if (existingProject.getStatus() == EntityStatus.ACTIVE || existingProject.getStatus() == EntityStatus.CLOSED) {
             throw new IllegalStateException("Cannot delete active or closed project. Project id: " + projectId);

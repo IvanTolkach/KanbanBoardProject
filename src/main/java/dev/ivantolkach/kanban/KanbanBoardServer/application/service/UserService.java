@@ -3,6 +3,7 @@ package dev.ivantolkach.kanban.KanbanBoardServer.application.service;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.user.UserDTOInput;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.user.UserDTOOutput;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.user.UserFilterDTO;
+import dev.ivantolkach.kanban.KanbanBoardServer.application.service.exception.UnauthorizedException;
 import dev.ivantolkach.kanban.KanbanBoardServer.domain.common.enums.EntityStatus;
 import dev.ivantolkach.kanban.KanbanBoardServer.domain.common.enums.UserRole;
 import dev.ivantolkach.kanban.KanbanBoardServer.domain.model.User;
@@ -59,6 +60,14 @@ public class UserService {
             user = userRepository.findById(userDTOInput.getId())
                     .orElseThrow(()->new IllegalArgumentException("User not found with id: " + userDTOInput.getId()));
 
+            User currentUser = getCurrentUser();
+
+            if (!(currentUser.getRole() == UserRole.ROLE_ADMIN)) {
+                if (!(user.getId().equals(currentUser.getId()))) {
+                    throw new UnauthorizedException("Not allowed to edit this entity");
+                }
+            }
+
             if (user.getStatus() == EntityStatus.RESTRICTED && userDTOInput.getStatus() != EntityStatus.ACTIVE) {
                 throw new IllegalStateException("Cannot update restricted user. User id: " + userDTOInput.getId());
             }
@@ -79,6 +88,10 @@ public class UserService {
                 user.setBirthDate(userDTOInput.getBirthDate());
             }
             if (!(userDTOInput.getStatus() == null)) {
+
+                if (currentUser.getRole() != UserRole.ROLE_ADMIN) {
+                    throw new UnauthorizedException("Not allowed to edit status of this entity");
+                }
 
                 if (userDTOInput.getStatus() == EntityStatus.CREATED) {
                     throw new IllegalArgumentException("User status cannot be changed back to CREATED");

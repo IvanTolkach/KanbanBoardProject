@@ -5,7 +5,9 @@ import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.task.TaskDTOOutp
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.task.TaskFilterDTO;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.usertask.UserTaskDTO;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.service.exception.NotFoundException;
+import dev.ivantolkach.kanban.KanbanBoardServer.application.service.exception.UnauthorizedException;
 import dev.ivantolkach.kanban.KanbanBoardServer.domain.common.enums.EntityStatus;
+import dev.ivantolkach.kanban.KanbanBoardServer.domain.common.enums.UserRole;
 import dev.ivantolkach.kanban.KanbanBoardServer.domain.common.validator.*;
 import dev.ivantolkach.kanban.KanbanBoardServer.domain.model.*;
 import dev.ivantolkach.kanban.KanbanBoardServer.infrastructure.mapper.task.TaskListMapper;
@@ -51,6 +53,9 @@ public class TaskService {
     @Autowired
     private ProjectColumnService projectColumnService;
 
+    @Autowired
+    private UserService userService;
+
     public boolean existsById(UUID taskId) {
         return taskRepository.existsById(taskId);
     }
@@ -95,6 +100,14 @@ public class TaskService {
         if (taskDTOInput.getId() != null) {
             task = taskRepository.findById(taskDTOInput.getId())
                     .orElseThrow(()->new NotFoundException("Task not found with id: " + taskDTOInput.getId()));
+
+            User currentUser = userService.getCurrentUser();
+
+            if (!(currentUser.getRole() == UserRole.ROLE_ADMIN)) {
+                if (!(task.getCreatedBy().getId().equals(currentUser.getId()))) {
+                    throw new UnauthorizedException("Not allowed to edit this entity");
+                }
+            }
 
             if (task.getStatus() == EntityStatus.CLOSED && taskDTOInput.getStatus() != EntityStatus.ACTIVE) {
                 throw new IllegalStateException("Cannot update closed task. Task id: " + taskDTOInput.getId());
