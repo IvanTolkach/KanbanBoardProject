@@ -1,10 +1,7 @@
 package dev.ivantolkach.kanban.KanbanBoardServer.infrastructure.persistence.specification;
 
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.task.TaskFilterDTO;
-import dev.ivantolkach.kanban.KanbanBoardServer.domain.model.Project;
-import dev.ivantolkach.kanban.KanbanBoardServer.domain.model.ProjectColumn;
-import dev.ivantolkach.kanban.KanbanBoardServer.domain.model.Task;
-import dev.ivantolkach.kanban.KanbanBoardServer.domain.model.User;
+import dev.ivantolkach.kanban.KanbanBoardServer.domain.model.*;
 import jakarta.persistence.criteria.*;
 import org.springframework.data.jpa.domain.Specification;
 
@@ -60,6 +57,34 @@ public class TaskSpecification {
             }
 
             return cb.and(predicates.toArray(new Predicate[0]));
+        };
+    }
+
+    public static Specification<Task> accessibleBy(User currentUser) {
+        return (root, query, cb) -> {
+            if (currentUser == null) {
+                return cb.isTrue(cb.literal(false));
+            }
+
+            Predicate predicate = cb.disjunction();
+
+            Join<Task, ProjectColumn> columnJoin = root.join("column");
+            Join<ProjectColumn, Project> projectJoin = columnJoin.join("project");
+            predicate = cb.or(predicate, cb.equal(projectJoin.get("createdBy").get("id"), currentUser.getId()));
+
+            predicate = cb.or(predicate, cb.equal(columnJoin.get("createdBy").get("id"), currentUser.getId()));
+
+            Subquery<UserTask> userTaskSubquery = query.subquery(UserTask.class);
+            Root<UserTask> userTaskRoot = userTaskSubquery.from(UserTask.class);
+            userTaskSubquery.select(userTaskRoot);
+            userTaskSubquery.where(
+                    cb.equal(userTaskRoot.get("task").get("id"), root.get("id")),
+                    cb.equal(userTaskRoot.get("user").get("id"), currentUser.getId()),
+                    cb.isTrue(userTaskRoot.get("isAssigned"))
+            );
+            predicate = cb.or(predicate, cb.exists(userTaskSubquery));
+
+            return predicate;
         };
     }
 }

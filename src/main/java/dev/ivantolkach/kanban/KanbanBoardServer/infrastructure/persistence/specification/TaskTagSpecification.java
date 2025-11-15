@@ -28,4 +28,35 @@ public class TaskTagSpecification {
             return cb.and(predicates.toArray(new Predicate[0]));
         };
     }
+
+    public static Specification<TaskTag> accessibleBy(User currentUser) {
+        return (root, query, cb) -> {
+            if (currentUser == null) {
+                return cb.isTrue(cb.literal(false));
+            }
+
+            Predicate predicate = cb.disjunction();
+
+            Join<TaskTag, Task> taskJoin = root.join("task");
+
+            predicate = cb.or(predicate, cb.equal(taskJoin.get("createdBy").get("id"), currentUser.getId()));
+
+            Subquery<UserTask> userTaskSubquery = query.subquery(UserTask.class);
+            Root<UserTask> userTaskRoot = userTaskSubquery.from(UserTask.class);
+            userTaskSubquery.select(userTaskRoot);
+            userTaskSubquery.where(
+                    cb.equal(userTaskRoot.get("task").get("id"), taskJoin.get("id")),
+                    cb.equal(userTaskRoot.get("user").get("id"), currentUser.getId())
+            );
+            predicate = cb.or(predicate, cb.exists(userTaskSubquery));
+
+            Join<Task, ProjectColumn> columnJoin = taskJoin.join("column");
+            predicate = cb.or(predicate, cb.equal(columnJoin.get("createdBy").get("id"), currentUser.getId()));
+
+            Join<ProjectColumn, Project> projectJoin = columnJoin.join("project");
+            predicate = cb.or(predicate, cb.equal(projectJoin.get("createdBy").get("id"), currentUser.getId()));
+
+            return predicate;
+        };
+    }
 }

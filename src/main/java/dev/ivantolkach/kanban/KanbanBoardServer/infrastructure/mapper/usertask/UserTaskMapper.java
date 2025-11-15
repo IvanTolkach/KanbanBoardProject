@@ -10,7 +10,7 @@ import org.mapstruct.ReportingPolicy;
 public interface UserTaskMapper {
     @Mapping(source = "user.id", target = "userId")
     @Mapping(source = "task.id", target = "taskId")
-    @Mapping(source = "assigned", target = "isAssigned")
+    @Mapping(source = "isAssigned", target = "isAssigned")
     UserTaskDTO toDTO(UserTask userTask);
 
     UserTask toUserTask(UserTaskDTO userTaskDTO);

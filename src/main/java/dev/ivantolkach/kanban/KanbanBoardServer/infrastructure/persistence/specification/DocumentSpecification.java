@@ -1,9 +1,7 @@
 package dev.ivantolkach.kanban.KanbanBoardServer.infrastructure.persistence.specification;
 
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.document.DocumentFilterDTO;
-import dev.ivantolkach.kanban.KanbanBoardServer.domain.model.Document;
-import dev.ivantolkach.kanban.KanbanBoardServer.domain.model.Task;
-import dev.ivantolkach.kanban.KanbanBoardServer.domain.model.User;
+import dev.ivantolkach.kanban.KanbanBoardServer.domain.model.*;
 import jakarta.persistence.criteria.*;
 import org.springframework.data.jpa.domain.Specification;
 
@@ -59,6 +57,38 @@ public class DocumentSpecification {
             }
 
             return cb.and(predicates.toArray(new Predicate[0]));
+        };
+    }
+
+    public static Specification<Document> accessibleBy(User currentUser) {
+        return (root, query, cb) -> {
+            if (currentUser == null) {
+                return cb.isTrue(cb.literal(false));
+            }
+
+            Predicate predicate = cb.disjunction();
+
+            Join<Document, Task> taskJoin = root.join("task");
+
+            predicate = cb.or(predicate, cb.equal(taskJoin.get("createdBy").get("id"), currentUser.getId()));
+
+            Subquery<UserTask> userTaskSubquery = query.subquery(UserTask.class);
+            Root<UserTask> userTaskRoot = userTaskSubquery.from(UserTask.class);
+            userTaskSubquery.select(userTaskRoot);
+            userTaskSubquery.where(
+                    cb.equal(userTaskRoot.get("task").get("id"), taskJoin.get("id")),
+                    cb.equal(userTaskRoot.get("user").get("id"), currentUser.getId()),
+                    cb.isTrue(userTaskRoot.get("assigned"))
+            );
+            predicate = cb.or(predicate, cb.exists(userTaskSubquery));
+
+            Join<Task, ProjectColumn> columnJoin = taskJoin.join("column");
+            predicate = cb.or(predicate, cb.equal(columnJoin.get("createdBy").get("id"), currentUser.getId()));
+
+            Join<ProjectColumn, Project> projectJoin = columnJoin.join("project");
+            predicate = cb.or(predicate, cb.equal(projectJoin.get("createdBy").get("id"), currentUser.getId()));
+
+            return predicate;
         };
     }
 }

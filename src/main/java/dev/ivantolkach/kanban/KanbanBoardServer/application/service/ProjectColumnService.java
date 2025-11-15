@@ -3,8 +3,11 @@ package dev.ivantolkach.kanban.KanbanBoardServer.application.service;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.column.ProjectColumnDTOInput;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.column.ProjectColumnDTOOutput;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.column.ProjectColumnFilterDTO;
+import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.project.ProjectFilterDTO;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.service.exception.NotFoundException;
+import dev.ivantolkach.kanban.KanbanBoardServer.application.service.exception.UnauthorizedException;
 import dev.ivantolkach.kanban.KanbanBoardServer.domain.common.enums.EntityStatus;
+import dev.ivantolkach.kanban.KanbanBoardServer.domain.common.enums.UserRole;
 import dev.ivantolkach.kanban.KanbanBoardServer.domain.model.Project;
 import dev.ivantolkach.kanban.KanbanBoardServer.domain.model.ProjectColumn;
 import dev.ivantolkach.kanban.KanbanBoardServer.domain.model.User;
@@ -16,6 +19,7 @@ import dev.ivantolkach.kanban.KanbanBoardServer.infrastructure.persistence.repos
 import dev.ivantolkach.kanban.KanbanBoardServer.infrastructure.persistence.repository.UserRepository;
 import dev.ivantolkach.kanban.KanbanBoardServer.infrastructure.persistence.specification.ProjectColumnSpecification;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -43,6 +47,12 @@ public class ProjectColumnService {
     @Autowired
     ProjectColumnListMapper projectColumnListMapper;
 
+    @Autowired
+    UserService userService;
+
+    @Autowired
+    ProjectService projectService;
+
     public boolean existsById(UUID columnId) {
         return projectColumnRepository.existsById(columnId);
     }
@@ -52,7 +62,16 @@ public class ProjectColumnService {
     }
 
     public List<ProjectColumnDTOOutput> getProjectColumnsByFilter(ProjectColumnFilterDTO filter) {
-        return projectColumnListMapper.toDTOList(projectColumnRepository.findAll(ProjectColumnSpecification.filterBy(filter)));
+        User currentUser = userService.getCurrentUser();
+
+        Specification<ProjectColumn> spec = ProjectColumnSpecification.filterBy(filter);
+
+        if (currentUser.getRole() != UserRole.ROLE_ADMIN) {
+            spec = spec.and(ProjectColumnSpecification.accessibleBy(currentUser));
+        }
+
+        List<ProjectColumn> projectColumns = projectColumnRepository.findAll(spec);
+        return projectColumnListMapper.toDTOList(projectColumns);
     }
 
     public Optional<ProjectColumnDTOOutput> getProjectColumnById(UUID columnId) {
@@ -85,6 +104,14 @@ public class ProjectColumnService {
             projectColumn = projectColumnRepository.findById(projectColumnDTOInput.getId())
                     .orElseThrow(() -> new NotFoundException("Column not found with id: " + projectColumnDTOInput.getId()));
 
+            User currentUser = userService.getCurrentUser();
+
+            if (!(currentUser.getRole() == UserRole.ROLE_ADMIN)) {
+                if (!(projectColumn.getCreatedBy().getId().equals(currentUser.getId()))) {
+                    throw new UnauthorizedException("Not allowed to edit this entity");
+                }
+            }
+
             if (!(projectColumnDTOInput.getTitle() == null || projectColumnDTOInput.getTitle().isBlank())) {
                 projectColumn.setTitle(projectColumnDTOInput.getTitle());
             }
@@ -110,6 +137,15 @@ public class ProjectColumnService {
             }
 
         } else {
+
+            User currentUser = userService.getCurrentUser();
+
+            if (!(currentUser.getRole() == UserRole.ROLE_ADMIN)) {
+                if (!(projectService.getProjectById(projectId).get().getCreatedBy().equals(currentUser.getId()))) {
+                    throw new UnauthorizedException("Not allowed to create this entity");
+                }
+            }
+
             if (projectColumnDTOInput.getTitle() == null || projectColumnDTOInput.getTitle().isBlank()) {
                 throw new IllegalArgumentException("Column title cannot be empty");
             }
@@ -129,6 +165,14 @@ public class ProjectColumnService {
     public void deleteProjectColumn(UUID columnId) {
         ProjectColumn existingProjectColumn = projectColumnRepository.findById(columnId)
                 .orElseThrow(()->new NotFoundException("Column not found with id: " + columnId));
+
+        User currentUser = userService.getCurrentUser();
+
+        if (!(currentUser.getRole() == UserRole.ROLE_ADMIN)) {
+            if (!(existingProjectColumn.getCreatedBy().getId().equals(currentUser.getId()))) {
+                throw new UnauthorizedException("Not allowed to delete this entity");
+            }
+        }
 
         if (existingProjectColumn.getProject().getStatus() == EntityStatus.ACTIVE && existingProjectColumn.isDefault()) {
             throw new IllegalStateException("Cannot delete default column in active project. Column id: " + columnId);

@@ -15,4 +15,6 @@ public interface UserTaskRepository extends JpaRepository<UserTask, UUID>, JpaSp
     UserTask findByTaskIdAndUserId(UUID taskId, UUID userId);
 
     boolean existsByTaskIdAndUserId(UUID taskId, UUID userId);
+
+    boolean existsByTaskIdAndUserIdAndIsAssigned(UUID taskId, UUID userId, boolean assigned);
 }
