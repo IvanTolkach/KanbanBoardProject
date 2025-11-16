@@ -62,6 +62,9 @@ public class TagService {
 
     public List<TaskTagDTO> getTaskTagsByFilter(TaskTagDTO filter) {
         User currentUser = userService.getCurrentUser();
+        if (currentUser == null) {
+            throw new UnauthorizedException("User is not authenticated");
+        }
 
         Specification<TaskTag> spec = TaskTagSpecification.filterBy(filter);
 
@@ -75,6 +78,9 @@ public class TagService {
 
     public TagDTOOutput createUpdateTag(TagDTOInput tagDTOInput) {
         User currentUser = userService.getCurrentUser();
+        if (currentUser == null) {
+            throw new UnauthorizedException("User is not authenticated");
+        }
 
         Tag tag;
 
@@ -104,7 +110,7 @@ public class TagService {
     public TaskTagDTO attachTag (UUID taskId, UUID tagId) {
         User currentUser = userService.getCurrentUser();
         if (currentUser == null) {
-            throw new AccessDeniedException("User is not authenticated");
+            throw new UnauthorizedException("User is not authenticated");
         }
 
         Task task = taskRepository.findById(taskId)
@@ -153,6 +159,9 @@ public class TagService {
 
     public void deleteTag(UUID tagId) {
         User currentUser = userService.getCurrentUser();
+        if (currentUser == null) {
+            throw new UnauthorizedException("User is not authenticated");
+        }
 
         Tag existingTag = tagRepository.findById(tagId)
                 .orElseThrow(() -> new NotFoundException("Tag not found with id: " + tagId));
@@ -166,6 +175,9 @@ public class TagService {
 
     public void deleteTaskTag(UUID taskTagId) {
         User currentUser = userService.getCurrentUser();
+        if (currentUser == null) {
+            throw new UnauthorizedException("User is not authenticated");
+        }
 
         TaskTag existingTaskTag = taskTagRepository.findById(taskTagId)
                 .orElseThrow(() -> new NotFoundException("TaskTag relation not found with id: " + taskTagId));

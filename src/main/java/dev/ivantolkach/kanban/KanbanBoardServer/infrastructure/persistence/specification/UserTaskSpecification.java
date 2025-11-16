@@ -51,7 +51,7 @@ public class UserTaskSpecification {
             taskSubquery.select(taskRoot);
             taskSubquery.where(
                     cb.equal(taskRoot.get("id"), root.get("task").get("id")),
-                    TaskSpecification.accessibleBy(currentUser).toPredicate(taskRoot, (CriteriaQuery<?>) taskSubquery, cb)
+                    TaskSpecification.accessibleBy(currentUser).toPredicate(taskRoot, (CriteriaQuery<?>) taskSubquery.getParent(), cb)
             );
 
             return cb.exists(taskSubquery);

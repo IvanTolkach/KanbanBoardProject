@@ -88,6 +88,9 @@ public class ProjectService {
                     .orElseThrow(() -> new NotFoundException("Project not found with id: " + projectDTOInput.getId()));
 
             User currentUser = userService.getCurrentUser();
+            if (currentUser == null) {
+                throw new UnauthorizedException("User is not authenticated");
+            }
 
             if (!(currentUser.getRole() == UserRole.ROLE_ADMIN)) {
                 if (!(project.getCreatedBy().getId().equals(currentUser.getId()))) {
@@ -147,6 +150,9 @@ public class ProjectService {
                 .orElseThrow(()->new NotFoundException("Project not found with id: " + projectId));
 
         User currentUser = userService.getCurrentUser();
+        if (currentUser == null) {
+            throw new UnauthorizedException("User is not authenticated");
+        }
 
         if (!(currentUser.getRole() == UserRole.ROLE_ADMIN)) {
             if (!(existingProject.getCreatedBy().getId().equals(currentUser.getId()))) {

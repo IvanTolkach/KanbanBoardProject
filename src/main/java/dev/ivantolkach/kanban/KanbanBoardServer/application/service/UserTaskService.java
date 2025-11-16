@@ -2,6 +2,7 @@ package dev.ivantolkach.kanban.KanbanBoardServer.application.service;
 
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.usertask.UserTaskDTO;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.usertask.UserTaskFilterDTO;
+import dev.ivantolkach.kanban.KanbanBoardServer.application.service.exception.UnauthorizedException;
 import dev.ivantolkach.kanban.KanbanBoardServer.domain.common.enums.UserRole;
 import dev.ivantolkach.kanban.KanbanBoardServer.domain.model.User;
 import dev.ivantolkach.kanban.KanbanBoardServer.domain.model.UserTask;
@@ -54,6 +55,9 @@ public class UserTaskService {
 
     public List<UserTaskDTO> getUserTasksByFilter(UserTaskFilterDTO filter) {
         User currentUser = userService.getCurrentUser();
+        if (currentUser == null) {
+            throw new UnauthorizedException("User is not authenticated");
+        }
 
         Specification<UserTask> spec = UserTaskSpecification.filterBy(filter);
 

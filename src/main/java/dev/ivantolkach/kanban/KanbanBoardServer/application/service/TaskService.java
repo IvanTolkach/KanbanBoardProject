@@ -67,6 +67,9 @@ public class TaskService {
 
     public List<TaskDTOOutput> getTasksByFilter(TaskFilterDTO filter) {
         User currentUser = userService.getCurrentUser();
+        if (currentUser == null) {
+            throw new UnauthorizedException("User is not authenticated");
+        }
 
         Specification<Task> spec = TaskSpecification.filterBy(filter);
 
@@ -112,6 +115,9 @@ public class TaskService {
                     .orElseThrow(()->new NotFoundException("Task not found with id: " + taskDTOInput.getId()));
 
             User currentUser = userService.getCurrentUser();
+            if (currentUser == null) {
+                throw new UnauthorizedException("User is not authenticated");
+            }
 
             if (currentUser.getRole() != UserRole.ROLE_ADMIN) {
                 ProjectColumn column = task.getColumn();
@@ -178,12 +184,15 @@ public class TaskService {
 
     public UserTaskDTO attachUser(UUID taskId, UUID userId, UserTaskDTO userTaskDTO) {
         User currentUser = userService.getCurrentUser();
+        if (currentUser == null) {
+            throw new UnauthorizedException("User is not authenticated");
+        }
 
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new NotFoundException("Task not found with id: " + taskId));
 
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new NotFoundException("User not found with id: " + userId));;
+                .orElseThrow(() -> new NotFoundException("User not found with id: " + userId));
 
         if (task.getStatus() == EntityStatus.CLOSED) {
             throw new IllegalStateException("Cannot attach user to closed task. Task id: " + taskId);

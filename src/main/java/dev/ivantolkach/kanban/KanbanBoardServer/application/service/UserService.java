@@ -61,6 +61,9 @@ public class UserService {
                     .orElseThrow(()->new IllegalArgumentException("User not found with id: " + userDTOInput.getId()));
 
             User currentUser = getCurrentUser();
+            if (currentUser == null) {
+                throw new UnauthorizedException("User is not authenticated");
+            }
 
             if (!(currentUser.getRole() == UserRole.ROLE_ADMIN)) {
                 if (!(user.getId().equals(currentUser.getId()))) {

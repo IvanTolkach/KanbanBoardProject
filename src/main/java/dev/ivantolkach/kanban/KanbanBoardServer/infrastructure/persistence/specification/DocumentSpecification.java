@@ -78,7 +78,7 @@ public class DocumentSpecification {
             userTaskSubquery.where(
                     cb.equal(userTaskRoot.get("task").get("id"), taskJoin.get("id")),
                     cb.equal(userTaskRoot.get("user").get("id"), currentUser.getId()),
-                    cb.isTrue(userTaskRoot.get("assigned"))
+                    cb.isTrue(userTaskRoot.get("isAssigned"))
             );
             predicate = cb.or(predicate, cb.exists(userTaskSubquery));
 

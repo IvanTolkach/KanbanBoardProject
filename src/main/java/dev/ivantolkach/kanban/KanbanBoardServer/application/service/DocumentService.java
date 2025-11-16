@@ -10,11 +10,9 @@ import dev.ivantolkach.kanban.KanbanBoardServer.infrastructure.mapper.document.D
 import dev.ivantolkach.kanban.KanbanBoardServer.infrastructure.mapper.document.DocumentMapper;
 import dev.ivantolkach.kanban.KanbanBoardServer.infrastructure.persistence.repository.DocumentRepository;
 import dev.ivantolkach.kanban.KanbanBoardServer.infrastructure.persistence.repository.TaskRepository;
-import dev.ivantolkach.kanban.KanbanBoardServer.infrastructure.persistence.repository.UserRepository;
 import dev.ivantolkach.kanban.KanbanBoardServer.infrastructure.persistence.repository.UserTaskRepository;
 import dev.ivantolkach.kanban.KanbanBoardServer.infrastructure.persistence.specification.DocumentSpecification;
 
-import org.hibernate.type.descriptor.DateTimeUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResource;
@@ -28,7 +26,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -62,6 +59,9 @@ public class DocumentService {
 
     public List<DocumentDTOOutput> getDocumentsByFilter(DocumentFilterDTO filter) {
         User currentUser = userService.getCurrentUser();
+        if (currentUser == null) {
+            throw new UnauthorizedException("User is not authenticated");
+        }
 
         Specification<Document> spec = DocumentSpecification.filterBy(filter);
 
@@ -75,6 +75,9 @@ public class DocumentService {
 
     public Resource downloadDocument(UUID documentId) {
         User currentUser = userService.getCurrentUser();
+        if (currentUser == null) {
+            throw new UnauthorizedException("User is not authenticated");
+        }
 
         Document document = documentRepository.findById(documentId)
                 .orElseThrow(() -> new NotFoundException("Document not found with id: " + documentId));
@@ -106,6 +109,9 @@ public class DocumentService {
 
     public DocumentDTOOutput uploadUpdateDocument(UUID taskId, UUID documentId, MultipartFile file) {
         User currentUser = userService.getCurrentUser();
+        if (currentUser == null) {
+            throw new UnauthorizedException("User is not authenticated");
+        }
 
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new NotFoundException("Task not found with id: " + taskId));
@@ -196,6 +202,9 @@ public class DocumentService {
 
     public void deleteDocument(UUID documentId) {
         User currentUser = userService.getCurrentUser();
+        if (currentUser == null) {
+            throw new UnauthorizedException("User is not authenticated");
+        }
 
         Document existingDocument = documentRepository.findById(documentId)
                 .orElseThrow(() -> new NotFoundException("Document not found with id: " + documentId));

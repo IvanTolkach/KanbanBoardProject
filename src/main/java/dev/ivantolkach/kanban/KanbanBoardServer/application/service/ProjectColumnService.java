@@ -3,7 +3,6 @@ package dev.ivantolkach.kanban.KanbanBoardServer.application.service;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.column.ProjectColumnDTOInput;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.column.ProjectColumnDTOOutput;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.column.ProjectColumnFilterDTO;
-import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.project.ProjectFilterDTO;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.service.exception.NotFoundException;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.service.exception.UnauthorizedException;
 import dev.ivantolkach.kanban.KanbanBoardServer.domain.common.enums.EntityStatus;
@@ -63,6 +62,9 @@ public class ProjectColumnService {
 
     public List<ProjectColumnDTOOutput> getProjectColumnsByFilter(ProjectColumnFilterDTO filter) {
         User currentUser = userService.getCurrentUser();
+        if (currentUser == null) {
+            throw new UnauthorizedException("User is not authenticated");
+        }
 
         Specification<ProjectColumn> spec = ProjectColumnSpecification.filterBy(filter);
 
@@ -105,6 +107,9 @@ public class ProjectColumnService {
                     .orElseThrow(() -> new NotFoundException("Column not found with id: " + projectColumnDTOInput.getId()));
 
             User currentUser = userService.getCurrentUser();
+            if (currentUser == null) {
+                throw new UnauthorizedException("User is not authenticated");
+            }
 
             if (!(currentUser.getRole() == UserRole.ROLE_ADMIN)) {
                 if (!(projectColumn.getCreatedBy().getId().equals(currentUser.getId()))) {
@@ -139,6 +144,9 @@ public class ProjectColumnService {
         } else {
 
             User currentUser = userService.getCurrentUser();
+            if (currentUser == null) {
+                throw new UnauthorizedException("User is not authenticated");
+            }
 
             if (!(currentUser.getRole() == UserRole.ROLE_ADMIN)) {
                 if (!(projectService.getProjectById(projectId).get().getCreatedBy().equals(currentUser.getId()))) {
@@ -167,6 +175,9 @@ public class ProjectColumnService {
                 .orElseThrow(()->new NotFoundException("Column not found with id: " + columnId));
 
         User currentUser = userService.getCurrentUser();
+        if (currentUser == null) {
+            throw new UnauthorizedException("User is not authenticated");
+        }
 
         if (!(currentUser.getRole() == UserRole.ROLE_ADMIN)) {
             if (!(existingProjectColumn.getCreatedBy().getId().equals(currentUser.getId()))) {
