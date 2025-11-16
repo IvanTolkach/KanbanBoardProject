@@ -9,7 +9,6 @@ import dev.ivantolkach.kanban.KanbanBoardServer.application.service.TaskService;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.service.UserTaskService;
 import dev.ivantolkach.kanban.KanbanBoardServer.presentation.common.TaskEndpoint;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -35,12 +34,12 @@ public class TaskController implements TaskEndpoint {
     }
 
     @Override
-    public ResponseEntity<TaskDTOOutput> createUpdateTask(UUID projectId, TaskDTOInput task) {
-        return ResponseEntity.ok(taskService.createUpdateTask(projectId, task));
+    public TaskDTOOutput createUpdateTask(UUID projectId, TaskDTOInput task) {
+        return taskService.createUpdateTask(projectId, task);
     }
 
     @Override
-    public ResponseEntity<UserTaskDTO> attachUser(UUID taskId, UUID userId, UserTaskDTO userTaskDTO) {
-        return ResponseEntity.ok(taskService.attachUser(taskId, userId, userTaskDTO));
+    public UserTaskDTO attachUser(UUID taskId, UUID userId, UserTaskDTO userTaskDTO) {
+        return taskService.attachUser(taskId, userId, userTaskDTO);
     }
 }

@@ -6,7 +6,6 @@ import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.task.TaskFilterD
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.usertask.UserTaskDTO;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.usertask.UserTaskFilterDTO;
 import jakarta.validation.Valid;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -24,13 +23,13 @@ public interface TaskEndpoint {
     );
 
     @PutMapping(ApiEndpoints.Task.BY_PROJECT_ID)
-    ResponseEntity<TaskDTOOutput> createUpdateTask(
+    TaskDTOOutput createUpdateTask(
             @PathVariable UUID projectId,
             @Valid @RequestBody TaskDTOInput taskDTOInput
     );
 
     @PutMapping(ApiEndpoints.Task.ATTACH_USER)
-    ResponseEntity<UserTaskDTO> attachUser(
+    UserTaskDTO attachUser(
             @PathVariable UUID taskId,
             @PathVariable UUID userId,
             @RequestBody(required = false) UserTaskDTO userTaskDTO

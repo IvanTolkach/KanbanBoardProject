@@ -5,7 +5,6 @@ import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.tag.TagDTOOutput
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.tag.TagFilterDTO;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.tasktag.TaskTagDTO;
 import jakarta.validation.Valid;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -18,12 +17,12 @@ public interface TagEndpoint {
     );
 
     @PutMapping(ApiEndpoints.Tag.BASE)
-    ResponseEntity<TagDTOOutput> createUpdateTag(
+    TagDTOOutput createUpdateTag(
             @Valid @RequestBody TagDTOInput tag
     );
 
     @DeleteMapping(ApiEndpoints.Tag.BY_ID)
-    ResponseEntity<Void> deleteTag (
+    void deleteTag (
             @PathVariable UUID tagId
     );
 
@@ -33,13 +32,13 @@ public interface TagEndpoint {
     );
 
     @PutMapping(ApiEndpoints.Tag.ATTACH_TAG)
-    ResponseEntity<TaskTagDTO> attachTag(
+    TaskTagDTO attachTag(
             @PathVariable UUID taskId,
             @PathVariable UUID tagId
     );
 
     @DeleteMapping(ApiEndpoints.Tag.TASKS_TAGS_BY_ID)
-    ResponseEntity<Void> deleteTaskTag (
+    void deleteTaskTag (
             @PathVariable UUID taskTagId
     );
 }

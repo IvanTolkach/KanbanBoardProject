@@ -6,7 +6,6 @@ import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.column.ProjectCo
 import dev.ivantolkach.kanban.KanbanBoardServer.presentation.common.ColumnEndpoint;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.service.ProjectColumnService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -24,13 +23,12 @@ public class ColumnController implements ColumnEndpoint {
     }
 
     @Override
-    public ResponseEntity<ProjectColumnDTOOutput> createUpdateColumn(UUID projectId, ProjectColumnDTOInput projectColumn) {
-        return ResponseEntity.ok(projectColumnService.createUpdateProjectColumn(projectId, projectColumn));
+    public ProjectColumnDTOOutput createUpdateColumn(UUID projectId, ProjectColumnDTOInput projectColumn) {
+        return projectColumnService.createUpdateProjectColumn(projectId, projectColumn);
     }
 
     @Override
-    public ResponseEntity<Void> deleteColumn(UUID columnId) {
+    public void deleteColumn(UUID columnId) {
         projectColumnService.deleteProjectColumn(columnId);
-        return ResponseEntity.noContent().build();
     }
 }

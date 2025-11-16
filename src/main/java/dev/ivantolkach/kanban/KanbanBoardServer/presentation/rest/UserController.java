@@ -7,7 +7,7 @@ import dev.ivantolkach.kanban.KanbanBoardServer.application.service.*;
 import dev.ivantolkach.kanban.KanbanBoardServer.infrastructure.mapper.user.UserMapper;
 import dev.ivantolkach.kanban.KanbanBoardServer.presentation.common.UserEndpoint;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -33,18 +33,18 @@ public class UserController implements UserEndpoint {
     }
 
     @Override
-    public ResponseEntity<UserDTOOutput> createUpdateUser(UserDTOInput user) {
-        return ResponseEntity.ok(userService.createUpdateUser(user));
+    public UserDTOOutput createUpdateUser(UserDTOInput user) {
+        return userService.createUpdateUser(user);
     }
 
     @Override
-    public ResponseEntity<UserDTOOutput> changeUserPassword(UUID userId, String oldPassword, String newPassword) {
-        return ResponseEntity.ok(userService.changePassword(userId, oldPassword, newPassword));
+    public UserDTOOutput changeUserPassword(UUID userId, String oldPassword, String newPassword) {
+        return userService.changePassword(userId, oldPassword, newPassword);
     }
 
     @Override
-    public ResponseEntity<Void> deleteUser(UUID userId) {
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteUser(UUID userId) {
         userService.deleteUser(userId);
-        return ResponseEntity.noContent().build();
     }
 }

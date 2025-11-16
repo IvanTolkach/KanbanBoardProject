@@ -4,7 +4,6 @@ import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.column.ProjectCo
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.column.ProjectColumnDTOOutput;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.column.ProjectColumnFilterDTO;
 import jakarta.validation.Valid;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -17,13 +16,13 @@ public interface ColumnEndpoint {
     );
 
     @PutMapping(ApiEndpoints.ProjectColumn.BY_PROJECT_ID)
-    ResponseEntity<ProjectColumnDTOOutput> createUpdateColumn(
+    ProjectColumnDTOOutput createUpdateColumn(
             @PathVariable UUID projectId,
             @Valid @RequestBody ProjectColumnDTOInput projectColumn
     );
 
     @DeleteMapping(ApiEndpoints.ProjectColumn.BY_ID)
-    ResponseEntity<Void> deleteColumn(
+    void deleteColumn(
             @PathVariable UUID columnId
     );
 }

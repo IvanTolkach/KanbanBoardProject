@@ -6,7 +6,7 @@ import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.project.ProjectF
 import dev.ivantolkach.kanban.KanbanBoardServer.presentation.common.ProjectEndpoint;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.service.ProjectService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -24,13 +24,13 @@ public class ProjectController implements ProjectEndpoint {
     }
 
     @Override
-    public ResponseEntity<ProjectDTOOutput> createUpdateProject(ProjectDTOInput project) {
-        return ResponseEntity.ok(projectService.createUpdateProject(project));
+    public ProjectDTOOutput createUpdateProject(ProjectDTOInput project) {
+        return projectService.createUpdateProject(project);
     }
 
     @Override
-    public ResponseEntity<Void> deleteProject(UUID projectId) {
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteProject(UUID projectId) {
         projectService.deleteProject(projectId);
-        return ResponseEntity.noContent().build();
     }
 }
