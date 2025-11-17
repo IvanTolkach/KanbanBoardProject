@@ -18,7 +18,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -36,20 +35,8 @@ public class UserService {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
-    public boolean existsById(UUID userId) {
-        return userRepository.existsById(userId);
-    }
-
-    public List<UserDTOOutput> getAllUsers() {
-        return userListMapper.toDTOList(userRepository.findAll());
-    }
-
     public List<UserDTOOutput> getUsersByFilter(UserFilterDTO filter) {
         return userListMapper.toDTOList(userRepository.findAll(UserSpecification.filterBy(filter)));
-    }
-
-    public Optional<UserDTOOutput> getUserById(UUID userId) {
-        return userRepository.findById(userId).map(userMapper::toDTO);
     }
 
     public UserDTOOutput createUpdateUser(UserDTOInput userDTOInput) {

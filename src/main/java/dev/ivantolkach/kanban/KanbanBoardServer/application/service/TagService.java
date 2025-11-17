@@ -52,10 +52,6 @@ public class TagService {
     @Autowired
     UserService userService;
 
-    public boolean existsById(UUID tagId) {
-        return tagRepository.existsById(tagId);
-    }
-
     public List<TagDTOOutput> getTagsByFilter(TagFilterDTO filter) {
         return tagListMapper.toDTOList(tagRepository.findAll(TagSpecification.filterBy(filter)));
     }

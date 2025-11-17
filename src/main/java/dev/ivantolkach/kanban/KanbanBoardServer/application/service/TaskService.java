@@ -21,7 +21,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -57,14 +56,6 @@ public class TaskService {
     @Autowired
     private UserService userService;
 
-    public boolean existsById(UUID taskId) {
-        return taskRepository.existsById(taskId);
-    }
-
-    public List<TaskDTOOutput> getAllTasks() {
-        return taskListMapper.toDTOList(taskRepository.findAll());
-    }
-
     public List<TaskDTOOutput> getTasksByFilter(TaskFilterDTO filter) {
         User currentUser = userService.getCurrentUser();
         if (currentUser == null) {
@@ -79,28 +70,6 @@ public class TaskService {
 
         List<Task> tasks = taskRepository.findAll(spec);
         return taskListMapper.toDTOList(tasks);
-    }
-
-    public Optional<TaskDTOOutput> getTaskById(UUID taskId) {
-        return taskRepository.findById(taskId).map(taskMapper::toDTO);
-    }
-
-    public List<TaskDTOOutput> getTasksByProjectColumnId(UUID columnId) {
-        return taskListMapper.toDTOList(taskRepository.findTasksByColumnId(columnId));
-    }
-
-    public List<TaskDTOOutput> getTasksByCreator(UUID userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(()->new NotFoundException("User not found with id: " + userId));
-
-        return taskListMapper.toDTOList(taskRepository.findByCreatedBy(user));
-    }
-
-    public List<TaskDTOOutput> getTasksByCreator(UUID userId, EntityStatus status) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(()->new NotFoundException("User not found with id: " + userId));
-
-        return taskListMapper.toDTOList(taskRepository.findByCreatedByAndStatus(user, status));
     }
 
     public TaskDTOOutput createUpdateTask(UUID projectId, TaskDTOInput taskDTOInput) {

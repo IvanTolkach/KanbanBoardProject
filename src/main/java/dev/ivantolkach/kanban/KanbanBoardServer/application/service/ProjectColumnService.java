@@ -15,14 +15,12 @@ import dev.ivantolkach.kanban.KanbanBoardServer.infrastructure.mapper.column.Pro
 import dev.ivantolkach.kanban.KanbanBoardServer.infrastructure.persistence.repository.ProjectColumnRepository;
 import dev.ivantolkach.kanban.KanbanBoardServer.infrastructure.persistence.repository.ProjectRepository;
 import dev.ivantolkach.kanban.KanbanBoardServer.infrastructure.persistence.repository.TaskRepository;
-import dev.ivantolkach.kanban.KanbanBoardServer.infrastructure.persistence.repository.UserRepository;
 import dev.ivantolkach.kanban.KanbanBoardServer.infrastructure.persistence.specification.ProjectColumnSpecification;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -33,9 +31,6 @@ public class ProjectColumnService {
 
     @Autowired
     ProjectRepository projectRepository;
-
-    @Autowired
-    UserRepository userRepository;
 
     @Autowired
     TaskRepository taskRepository;
@@ -52,14 +47,6 @@ public class ProjectColumnService {
     @Autowired
     ProjectService projectService;
 
-    public boolean existsById(UUID columnId) {
-        return projectColumnRepository.existsById(columnId);
-    }
-
-    public List<ProjectColumnDTOOutput> getAllProjectColumns() {
-        return projectColumnListMapper.toDTOList(projectColumnRepository.findAll());
-    }
-
     public List<ProjectColumnDTOOutput> getProjectColumnsByFilter(ProjectColumnFilterDTO filter) {
         User currentUser = userService.getCurrentUser();
         if (currentUser == null) {
@@ -74,21 +61,6 @@ public class ProjectColumnService {
 
         List<ProjectColumn> projectColumns = projectColumnRepository.findAll(spec);
         return projectColumnListMapper.toDTOList(projectColumns);
-    }
-
-    public Optional<ProjectColumnDTOOutput> getProjectColumnById(UUID columnId) {
-        return projectColumnRepository.findById(columnId).map(projectColumnMapper::toDTO);
-    }
-
-    public List<ProjectColumnDTOOutput> getProjectColumnsByProjectId(UUID projectId) {
-        return projectColumnListMapper.toDTOList(projectColumnRepository.findProjectColumnsByProjectId(projectId));
-    }
-
-    public List<ProjectColumnDTOOutput> getProjectColumnsByCreator(UUID userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new NotFoundException("User not found with id: " + userId));
-
-        return projectColumnListMapper.toDTOList(projectColumnRepository.findByCreatedBy(user));
     }
 
     public ProjectColumn findDefaultProjectColumn(UUID projectId) {

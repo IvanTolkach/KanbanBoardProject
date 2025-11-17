@@ -16,7 +16,6 @@ import dev.ivantolkach.kanban.KanbanBoardServer.infrastructure.mapper.project.Pr
 import dev.ivantolkach.kanban.KanbanBoardServer.infrastructure.persistence.repository.ProjectColumnRepository;
 import dev.ivantolkach.kanban.KanbanBoardServer.infrastructure.persistence.repository.ProjectRepository;
 import dev.ivantolkach.kanban.KanbanBoardServer.infrastructure.persistence.repository.TaskRepository;
-import dev.ivantolkach.kanban.KanbanBoardServer.infrastructure.persistence.repository.UserRepository;
 import dev.ivantolkach.kanban.KanbanBoardServer.infrastructure.persistence.specification.ProjectSpecification;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -35,9 +34,6 @@ public class ProjectService {
     ProjectColumnRepository projectColumnRepository;
 
     @Autowired
-    UserRepository userRepository;
-
-    @Autowired
     ProjectMapper projectMapper;
 
     @Autowired
@@ -49,34 +45,12 @@ public class ProjectService {
     @Autowired
     UserService userService;
 
-    public boolean existsById(UUID projectId) {
-        return projectRepository.existsById(projectId);
-    }
-
-    public List<ProjectDTOOutput> getAllProjects() {
-        return projectListMapper.toDTOList(projectRepository.findAll());
-    }
-
     public List<ProjectDTOOutput> getProjectsByFilter(ProjectFilterDTO filter) {
         return projectListMapper.toDTOList(projectRepository.findAll(ProjectSpecification.filterBy(filter)));
     }
 
     public Optional<ProjectDTOOutput> getProjectById(UUID projectId) {
         return projectRepository.findById(projectId).map(projectMapper::toDTO);
-    }
-
-    public List<ProjectDTOOutput> getProjectsByCreator(UUID userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(()->new NotFoundException("User not found with id: " + userId));
-
-        return projectListMapper.toDTOList(projectRepository.findByCreatedBy(user));
-    }
-
-    public List<ProjectDTOOutput> getProjectsByCreator(UUID userId, EntityStatus status) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(()->new NotFoundException("User not found with id: " + userId));
-
-        return projectListMapper.toDTOList(projectRepository.findByCreatedByAndStatus(user, status));
     }
 
     public ProjectDTOOutput createUpdateProject(ProjectDTOInput projectDTOInput) {
