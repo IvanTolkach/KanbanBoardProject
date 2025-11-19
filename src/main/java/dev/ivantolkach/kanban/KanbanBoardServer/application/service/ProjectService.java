@@ -3,6 +3,7 @@ package dev.ivantolkach.kanban.KanbanBoardServer.application.service;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.project.ProjectDTOInput;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.project.ProjectDTOOutput;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.project.ProjectFilterDTO;
+import dev.ivantolkach.kanban.KanbanBoardServer.application.service.exception.ForbiddenException;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.service.exception.NotFoundException;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.service.exception.UnauthorizedException;
 import dev.ivantolkach.kanban.KanbanBoardServer.domain.common.enums.EntityStatus;
@@ -68,7 +69,7 @@ public class ProjectService {
 
             if (!(currentUser.getRole() == UserRole.ROLE_ADMIN)) {
                 if (!(project.getCreatedBy().getId().equals(currentUser.getId()))) {
-                    throw new UnauthorizedException("Not allowed to edit this entity");
+                    throw new ForbiddenException("Not allowed to edit this entity");
                 }
             }
 
@@ -130,7 +131,7 @@ public class ProjectService {
 
         if (!(currentUser.getRole() == UserRole.ROLE_ADMIN)) {
             if (!(existingProject.getCreatedBy().getId().equals(currentUser.getId()))) {
-                throw new UnauthorizedException("Not allowed to delete this entity");
+                throw new ForbiddenException("Not allowed to delete this entity");
             }
         }
 

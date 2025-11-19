@@ -4,6 +4,7 @@ import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.tag.TagDTOInput;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.tag.TagDTOOutput;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.tag.TagFilterDTO;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.tasktag.TaskTagDTO;
+import dev.ivantolkach.kanban.KanbanBoardServer.application.service.exception.ForbiddenException;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.service.exception.NotFoundException;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.service.exception.UnauthorizedException;
 import dev.ivantolkach.kanban.KanbanBoardServer.domain.common.enums.UserRole;
@@ -89,7 +90,7 @@ public class TagService {
             }
 
             if (currentUser.getRole() != UserRole.ROLE_ADMIN && !tag.getCreatedBy().getId().equals(currentUser.getId())) {
-                throw new UnauthorizedException("Not allowed to edit this entity");
+                throw new ForbiddenException("Not allowed to edit this entity");
             }
 
             if (!(tagDTOInput.getName() == null || tagDTOInput.getName().isBlank())) {
@@ -163,7 +164,7 @@ public class TagService {
                 .orElseThrow(() -> new NotFoundException("Tag not found with id: " + tagId));
 
         if (currentUser.getRole() != UserRole.ROLE_ADMIN && !existingTag.getCreatedBy().getId().equals(currentUser.getId())) {
-            throw new UnauthorizedException("Not allowed to delete this entity");
+            throw new ForbiddenException("Not allowed to delete this entity");
         }
 
         tagRepository.delete(existingTag);
@@ -181,7 +182,7 @@ public class TagService {
         Task task = existingTaskTag.getTask();
 
         if (currentUser.getRole() != UserRole.ROLE_ADMIN && !task.getCreatedBy().getId().equals(currentUser.getId())) {
-            throw new UnauthorizedException("Not allowed to delete this relation");
+            throw new ForbiddenException("Not allowed to delete this relation");
         }
 
         taskTagRepository.delete(existingTaskTag);

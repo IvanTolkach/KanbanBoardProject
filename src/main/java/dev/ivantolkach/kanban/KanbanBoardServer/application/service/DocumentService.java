@@ -2,6 +2,7 @@ package dev.ivantolkach.kanban.KanbanBoardServer.application.service;
 
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.document.DocumentDTOOutput;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.document.DocumentFilterDTO;
+import dev.ivantolkach.kanban.KanbanBoardServer.application.service.exception.ForbiddenException;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.service.exception.NotFoundException;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.service.exception.UnauthorizedException;
 import dev.ivantolkach.kanban.KanbanBoardServer.domain.common.enums.UserRole;
@@ -93,7 +94,7 @@ public class DocumentService {
             boolean isProjectAuthor = project.getCreatedBy().getId().equals(currentUser.getId());
 
             if (! (isTaskAuthor || isTaskParticipant || isColumnAuthor || isProjectAuthor)) {
-                throw new UnauthorizedException("Not allowed to access this entity");
+                throw new ForbiddenException("Not allowed to access this entity");
             }
         }
 
@@ -126,7 +127,7 @@ public class DocumentService {
             boolean isProjectAuthor = project.getCreatedBy().getId().equals(currentUser.getId());
 
             if (! (isTaskAuthor || isTaskParticipant || isColumnAuthor || isProjectAuthor)) {
-                throw new UnauthorizedException("Not allowed to create or edit this entity");
+                throw new ForbiddenException("Not allowed to create or edit this entity");
             }
         }
 
@@ -175,7 +176,7 @@ public class DocumentService {
                     boolean isNewProjectAuthor = newProject.getCreatedBy().getId().equals(currentUser.getId());
 
                     if (! (isNewTaskAuthor || isNewTaskParticipant || isNewColumnAuthor || isNewProjectAuthor)) {
-                        throw new UnauthorizedException("Not allowed to edit this entity to new task");
+                        throw new ForbiddenException("Not allowed to edit this entity to new task");
                     }
                 }
             }
@@ -196,7 +197,8 @@ public class DocumentService {
 
                 return documentMapper.toDTO(documentRepository.save(existingDocument));
             } catch (IOException e) {
-                throw new RuntimeException("Error while deleting or uploading file", e); }
+                throw new RuntimeException("Error while deleting or uploading file", e);
+            }
         }
     }
 
@@ -220,7 +222,7 @@ public class DocumentService {
             boolean isProjectAuthor = project.getCreatedBy().getId().equals(currentUser.getId());
 
             if (! (isTaskAuthor || isTaskParticipant || isColumnAuthor || isProjectAuthor)) {
-                throw new UnauthorizedException("Not allowed to delete this entity");
+                throw new ForbiddenException("Not allowed to delete this entity");
             }
         }
 

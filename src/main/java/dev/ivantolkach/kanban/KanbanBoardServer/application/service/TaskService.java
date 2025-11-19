@@ -4,6 +4,7 @@ import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.task.TaskDTOInpu
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.task.TaskDTOOutput;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.task.TaskFilterDTO;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.usertask.UserTaskDTO;
+import dev.ivantolkach.kanban.KanbanBoardServer.application.service.exception.ForbiddenException;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.service.exception.NotFoundException;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.service.exception.UnauthorizedException;
 import dev.ivantolkach.kanban.KanbanBoardServer.domain.common.enums.EntityStatus;
@@ -97,7 +98,7 @@ public class TaskService {
                 boolean isProjectAuthor = project.getCreatedBy().getId().equals(currentUser.getId());
 
                 if (! (isTaskAuthor || isColumnAuthor || isProjectAuthor)) {
-                    throw new UnauthorizedException("Not allowed to create or edit this entity");
+                    throw new ForbiddenException("Not allowed to create or edit this entity");
                 }
             }
 
@@ -180,7 +181,7 @@ public class TaskService {
                 boolean isTaskAuthor = task.getCreatedBy().getId().equals(currentUser.getId());
                 boolean isTaskParticipant = userTaskRepository.existsByTaskIdAndUserIdAndIsAssigned(taskId, currentUser.getId(), true);
                 if (! (isTaskAuthor || isTaskParticipant)) {
-                    throw new UnauthorizedException("Not allowed to create this entity");
+                    throw new ForbiddenException("Not allowed to create this entity");
                 }
             }
 
@@ -205,7 +206,7 @@ public class TaskService {
                 boolean isColumnAuthor = column.getCreatedBy().getId().equals(currentUser.getId());
                 boolean isProjectAuthor = project.getCreatedBy().getId().equals(currentUser.getId());
                 if (! (isTaskAuthor || isColumnAuthor || isProjectAuthor)) {
-                    throw new UnauthorizedException("Not allowed to edit this entity");
+                    throw new ForbiddenException("Not allowed to edit this entity");
                 }
             }
 

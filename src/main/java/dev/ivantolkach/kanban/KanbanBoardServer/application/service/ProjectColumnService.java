@@ -3,6 +3,7 @@ package dev.ivantolkach.kanban.KanbanBoardServer.application.service;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.column.ProjectColumnDTOInput;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.column.ProjectColumnDTOOutput;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.column.ProjectColumnFilterDTO;
+import dev.ivantolkach.kanban.KanbanBoardServer.application.service.exception.ForbiddenException;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.service.exception.NotFoundException;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.service.exception.UnauthorizedException;
 import dev.ivantolkach.kanban.KanbanBoardServer.domain.common.enums.EntityStatus;
@@ -85,7 +86,7 @@ public class ProjectColumnService {
 
             if (!(currentUser.getRole() == UserRole.ROLE_ADMIN)) {
                 if (!(projectColumn.getCreatedBy().getId().equals(currentUser.getId()))) {
-                    throw new UnauthorizedException("Not allowed to edit this entity");
+                    throw new ForbiddenException("Not allowed to edit this entity");
                 }
             }
 
@@ -122,7 +123,7 @@ public class ProjectColumnService {
 
             if (!(currentUser.getRole() == UserRole.ROLE_ADMIN)) {
                 if (!(projectService.getProjectById(projectId).get().getCreatedBy().equals(currentUser.getId()))) {
-                    throw new UnauthorizedException("Not allowed to create this entity");
+                    throw new ForbiddenException("Not allowed to create this entity");
                 }
             }
 
@@ -153,7 +154,7 @@ public class ProjectColumnService {
 
         if (!(currentUser.getRole() == UserRole.ROLE_ADMIN)) {
             if (!(existingProjectColumn.getCreatedBy().getId().equals(currentUser.getId()))) {
-                throw new UnauthorizedException("Not allowed to delete this entity");
+                throw new ForbiddenException("Not allowed to delete this entity");
             }
         }
 

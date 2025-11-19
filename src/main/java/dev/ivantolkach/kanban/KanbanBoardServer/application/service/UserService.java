@@ -3,6 +3,7 @@ package dev.ivantolkach.kanban.KanbanBoardServer.application.service;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.user.UserDTOInput;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.user.UserDTOOutput;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.user.UserFilterDTO;
+import dev.ivantolkach.kanban.KanbanBoardServer.application.service.exception.ForbiddenException;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.service.exception.UnauthorizedException;
 import dev.ivantolkach.kanban.KanbanBoardServer.domain.common.enums.EntityStatus;
 import dev.ivantolkach.kanban.KanbanBoardServer.domain.common.enums.UserRole;
@@ -54,7 +55,7 @@ public class UserService {
 
             if (!(currentUser.getRole() == UserRole.ROLE_ADMIN)) {
                 if (!(user.getId().equals(currentUser.getId()))) {
-                    throw new UnauthorizedException("Not allowed to edit this entity");
+                    throw new ForbiddenException("Not allowed to edit this entity");
                 }
             }
 
@@ -80,7 +81,7 @@ public class UserService {
             if (!(userDTOInput.getStatus() == null)) {
 
                 if (currentUser.getRole() != UserRole.ROLE_ADMIN) {
-                    throw new UnauthorizedException("Not allowed to edit status of this entity");
+                    throw new ForbiddenException("Not allowed to edit status of this entity");
                 }
 
                 if (userDTOInput.getStatus() == EntityStatus.CREATED) {
