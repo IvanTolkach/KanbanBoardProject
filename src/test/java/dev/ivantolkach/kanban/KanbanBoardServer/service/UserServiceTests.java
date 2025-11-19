@@ -4,18 +4,29 @@ import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.user.UserDTOInpu
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.user.UserDTOOutput;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.user.UserFilterDTO;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.service.UserService;
+import dev.ivantolkach.kanban.KanbanBoardServer.application.service.exception.ForbiddenException;
+import dev.ivantolkach.kanban.KanbanBoardServer.application.service.exception.UnauthorizedException;
 import dev.ivantolkach.kanban.KanbanBoardServer.domain.common.enums.EntityStatus;
 import dev.ivantolkach.kanban.KanbanBoardServer.domain.common.enums.UserRole;
 import dev.ivantolkach.kanban.KanbanBoardServer.domain.model.User;
 import dev.ivantolkach.kanban.KanbanBoardServer.infrastructure.mapper.user.UserListMapper;
 import dev.ivantolkach.kanban.KanbanBoardServer.infrastructure.mapper.user.UserMapper;
 import dev.ivantolkach.kanban.KanbanBoardServer.infrastructure.persistence.repository.UserRepository;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDate;
@@ -43,6 +54,26 @@ class UserServiceTests {
 
     @Mock
     private PasswordEncoder passwordEncoder;
+
+    @Mock
+    private SecurityContext securityContext;
+
+    @Mock
+    private Authentication authentication;
+
+    private MockedStatic<SecurityContextHolder> securityContextHolderMock;
+
+    @BeforeEach
+    void setUp() {
+        securityContextHolderMock = mockStatic(SecurityContextHolder.class);
+        securityContextHolderMock.when(SecurityContextHolder::getContext).thenReturn(securityContext);
+        lenient().when(securityContext.getAuthentication()).thenReturn(authentication);
+    }
+
+    @AfterEach
+    void tearDown() {
+        securityContextHolderMock.close();
+    }
 
     @Test
     void getUsersByFilter_returnsFilteredUsers() {
@@ -111,18 +142,60 @@ class UserServiceTests {
             savedUser.setPassword("hashedPassword");
             return savedUser;
         });
-        when(userMapper.toDTO(user)).thenReturn(expectedDTO);
+        when(userMapper.toDTO(any(User.class))).thenReturn(expectedDTO);
 
         UserDTOOutput result = userService.createUpdateUser(input);
 
         assertEquals(expectedDTO, result);
-        assertEquals(UserRole.ROLE_CLIENT, user.getRole());
-        assertEquals("hashedPassword", user.getPassword());
+
         verify(userRepository).findByEmail("billy.herrington@example.com");
         verify(userMapper).toUser(input);
         verify(passwordEncoder).encode("password123");
-        verify(userRepository).save(user);
-        verify(userMapper).toDTO(user);
+        verify(userRepository).save(any(User.class));
+        verify(userMapper).toDTO(any(User.class));
+        verifyNoMoreInteractions(userRepository, userMapper, passwordEncoder);
+    }
+
+    @Test
+    void createUser_defaultStatus_success() {
+        UserDTOInput input = new UserDTOInput();
+        input.setId(null);
+        input.setFname("Billy");
+        input.setSname("Herrington");
+        input.setEmail("billy.herrington@example.com");
+        input.setPassword("password123");
+        input.setPosition("Developer");
+
+        User user = new User();
+        user.setId(UUID.randomUUID());
+        user.setFname("Billy");
+        user.setSname("Herrington");
+        user.setEmail("billy.herrington@example.com");
+        user.setPassword("password123");
+        user.setPosition("Developer");
+        user.setRole(UserRole.ROLE_CLIENT);
+        user.setStatus(EntityStatus.CREATED);
+        UserDTOOutput expectedDTO = new UserDTOOutput();
+
+        when(userRepository.findByEmail("billy.herrington@example.com")).thenReturn(Optional.empty());
+        when(userMapper.toUser(input)).thenReturn(user);
+        when(passwordEncoder.encode("password123")).thenReturn("hashedPassword");
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
+            User savedUser = invocation.getArgument(0);
+            savedUser.setPassword("hashedPassword");
+            return savedUser;
+        });
+        when(userMapper.toDTO(any(User.class))).thenReturn(expectedDTO);
+
+        UserDTOOutput result = userService.createUpdateUser(input);
+
+        assertEquals(expectedDTO, result);
+        verify(userRepository).findByEmail("billy.herrington@example.com");
+        verify(userMapper).toUser(input);
+        verify(passwordEncoder).encode("password123");
+        verify(userRepository).save(any(User.class));
+        verify(userMapper).toDTO(any(User.class));
+        verifyNoMoreInteractions(userRepository, userMapper, passwordEncoder);
     }
 
     @Test
@@ -251,11 +324,42 @@ class UserServiceTests {
 
         assertEquals("User status cannot be CLOSED", ex.getMessage());
         verify(userRepository).findByEmail("billy.herrington@example.com");
+        verifyNoMoreInteractions(userRepository);
         verifyNoInteractions(userMapper, passwordEncoder);
     }
 
     @Test
-    void updateUser_success() {
+    void updateUser_whenCurrentUserIsNull_shouldThrowUnauthorizedException() {
+        UUID userId = UUID.randomUUID();
+        UserDTOInput userDTOInput = new UserDTOInput();
+        userDTOInput.setId(userId);
+
+        User existingUser = new User();
+        existingUser.setId(userId);
+        existingUser.setFname("Existing");
+        existingUser.setSname("User");
+        existingUser.setEmail("existing@example.com");
+        existingUser.setStatus(EntityStatus.ACTIVE);
+        existingUser.setRole(UserRole.ROLE_CLIENT);
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(existingUser));
+
+        UserService userServiceSpy = Mockito.spy(userService);
+        doReturn(null).when(userServiceSpy).getCurrentUser();
+
+        UnauthorizedException exception = assertThrows(UnauthorizedException.class,
+                () -> userServiceSpy.createUpdateUser(userDTOInput));
+
+        assertEquals("User is not authenticated", exception.getMessage());
+
+        verify(userRepository).findById(userId);
+        verify(userServiceSpy).getCurrentUser();
+        verifyNoMoreInteractions(userRepository);
+        verifyNoInteractions(userMapper, passwordEncoder, userListMapper);
+    }
+
+    @Test
+    void updateUser_admin_success() {
         UUID userId = UUID.randomUUID();
         UserDTOInput input = new UserDTOInput();
         input.setId(userId);
@@ -273,9 +377,13 @@ class UserServiceTests {
         user.setPosition("Developer");
         user.setBirthDate(LocalDate.of(1985, 1, 1));
         user.setStatus(EntityStatus.ACTIVE);
+        User currentUser = new User();
+        currentUser.setRole(UserRole.ROLE_ADMIN);
         UserDTOOutput expectedDTO = new UserDTOOutput();
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(authentication.getName()).thenReturn("admin@example.com");
+        when(userRepository.findByEmail("admin@example.com")).thenReturn(Optional.of(currentUser));
         when(userRepository.save(user)).thenReturn(user);
         when(userMapper.toDTO(user)).thenReturn(expectedDTO);
 
@@ -289,6 +397,179 @@ class UserServiceTests {
         assertEquals(LocalDate.of(1990, 1, 1), user.getBirthDate());
         assertEquals(EntityStatus.ACTIVE, user.getStatus());
         verify(userRepository).findById(userId);
+        verify(userRepository).findByEmail("admin@example.com");
+        verify(userRepository).save(user);
+        verify(userMapper).toDTO(user);
+        verifyNoInteractions(passwordEncoder);
+    }
+
+    @Test
+    void updateUser_nonAdmin_ownUser_success() {
+        UUID userId = UUID.randomUUID();
+        UserDTOInput input = new UserDTOInput();
+        input.setId(userId);
+        input.setFname("Ivan");
+        User user = new User();
+        user.setId(userId);
+        user.setFname("Billy");
+        user.setStatus(EntityStatus.ACTIVE);
+        User currentUser = new User();
+        currentUser.setId(userId);
+        currentUser.setRole(UserRole.ROLE_CLIENT);
+        UserDTOOutput expectedDTO = new UserDTOOutput();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(authentication.getName()).thenReturn("user@example.com");
+        when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(currentUser));
+        when(userRepository.save(user)).thenReturn(user);
+        when(userMapper.toDTO(user)).thenReturn(expectedDTO);
+
+        UserDTOOutput result = userService.createUpdateUser(input);
+
+        assertEquals(expectedDTO, result);
+        assertEquals("Ivan", user.getFname());
+        verify(userRepository).findById(userId);
+        verify(userRepository).findByEmail("user@example.com");
+        verify(userRepository).save(user);
+        verify(userMapper).toDTO(user);
+        verifyNoInteractions(passwordEncoder);
+    }
+
+    @Test
+    void updateUser_nonAdmin_otherUser_throwsUnauthorizedException() {
+        UUID userId = UUID.randomUUID();
+        UserDTOInput input = new UserDTOInput();
+        input.setId(userId);
+        input.setFname("Ivan");
+        User user = new User();
+        user.setId(userId);
+        user.setStatus(EntityStatus.ACTIVE);
+        User currentUser = new User();
+        currentUser.setId(UUID.randomUUID());
+        currentUser.setRole(UserRole.ROLE_CLIENT);
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(authentication.getName()).thenReturn("other@example.com");
+        when(userRepository.findByEmail("other@example.com")).thenReturn(Optional.of(currentUser));
+
+        ForbiddenException ex = assertThrows(ForbiddenException.class,
+                () -> userService.createUpdateUser(input));
+
+        assertEquals("Not allowed to edit this entity", ex.getMessage());
+        verify(userRepository).findById(userId);
+        verify(userRepository).findByEmail("other@example.com");
+        verifyNoMoreInteractions(userRepository);
+        verifyNoInteractions(userMapper, passwordEncoder);
+    }
+
+    @Test
+    void updateUser_noCurrentUser_throwsIllegalArgumentException() {
+        UUID userId = UUID.randomUUID();
+        UserDTOInput input = new UserDTOInput();
+        input.setId(userId);
+        input.setFname("Ivan");
+        User user = new User();
+        user.setId(userId);
+        user.setStatus(EntityStatus.ACTIVE);
+
+        String email = "nonexistent@example.com";
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(authentication.getName()).thenReturn(email);
+        when(userRepository.findByEmail(email)).thenReturn(Optional.empty());
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> userService.createUpdateUser(input));
+
+        assertEquals("User not found with email: " + email, ex.getMessage());
+        verify(userRepository).findById(userId);
+        verify(userRepository).findByEmail(email);
+        verifyNoMoreInteractions(userRepository);
+        verifyNoInteractions(userMapper, passwordEncoder);
+    }
+
+    @Test
+    void updateUser_nonAdmin_changeStatus_throwsUnauthorizedException() {
+        UUID userId = UUID.randomUUID();
+        UserDTOInput input = new UserDTOInput();
+        input.setId(userId);
+        input.setStatus(EntityStatus.RESTRICTED);
+        User user = new User();
+        user.setId(userId);
+        user.setStatus(EntityStatus.ACTIVE);
+        User currentUser = new User();
+        currentUser.setId(userId);
+        currentUser.setRole(UserRole.ROLE_CLIENT);
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(authentication.getName()).thenReturn("user@example.com");
+        when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(currentUser));
+
+        ForbiddenException ex = assertThrows(ForbiddenException.class,
+                () -> userService.createUpdateUser(input));
+
+        assertEquals("Not allowed to edit status of this entity", ex.getMessage());
+        verify(userRepository).findById(userId);
+        verify(userRepository).findByEmail("user@example.com");
+        verifyNoMoreInteractions(userRepository);
+        verifyNoInteractions(userMapper, passwordEncoder);
+    }
+
+    @Test
+    void updateUser_admin_changeStatus_success() {
+        UUID userId = UUID.randomUUID();
+        UserDTOInput input = new UserDTOInput();
+        input.setId(userId);
+        input.setStatus(EntityStatus.RESTRICTED);
+        User user = new User();
+        user.setId(userId);
+        user.setStatus(EntityStatus.ACTIVE);
+        User currentUser = new User();
+        currentUser.setRole(UserRole.ROLE_ADMIN);
+        UserDTOOutput expectedDTO = new UserDTOOutput();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(authentication.getName()).thenReturn("admin@example.com");
+        when(userRepository.findByEmail("admin@example.com")).thenReturn(Optional.of(currentUser));
+        when(userRepository.save(user)).thenReturn(user);
+        when(userMapper.toDTO(user)).thenReturn(expectedDTO);
+
+        UserDTOOutput result = userService.createUpdateUser(input);
+
+        assertEquals(expectedDTO, result);
+        assertEquals(EntityStatus.RESTRICTED, user.getStatus());
+        verify(userRepository).findById(userId);
+        verify(userRepository).findByEmail("admin@example.com");
+        verify(userRepository).save(user);
+        verify(userMapper).toDTO(user);
+        verifyNoInteractions(passwordEncoder);
+    }
+
+    @Test
+    void updateUser_restrictedToActive_admin_success() {
+        UUID userId = UUID.randomUUID();
+        UserDTOInput input = new UserDTOInput();
+        input.setId(userId);
+        input.setStatus(EntityStatus.ACTIVE);
+        User user = new User();
+        user.setId(userId);
+        user.setStatus(EntityStatus.RESTRICTED);
+        User currentUser = new User();
+        currentUser.setRole(UserRole.ROLE_ADMIN);
+        UserDTOOutput expectedDTO = new UserDTOOutput();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(authentication.getName()).thenReturn("admin@example.com");
+        when(userRepository.findByEmail("admin@example.com")).thenReturn(Optional.of(currentUser));
+        when(userRepository.save(user)).thenReturn(user);
+        when(userMapper.toDTO(user)).thenReturn(expectedDTO);
+
+        UserDTOOutput result = userService.createUpdateUser(input);
+
+        assertEquals(expectedDTO, result);
+        assertEquals(EntityStatus.ACTIVE, user.getStatus());
+        verify(userRepository).findById(userId);
+        verify(userRepository).findByEmail("admin@example.com");
         verify(userRepository).save(user);
         verify(userMapper).toDTO(user);
         verifyNoInteractions(passwordEncoder);
@@ -308,11 +589,12 @@ class UserServiceTests {
 
         assertEquals("User not found with id: " + userId, ex.getMessage());
         verify(userRepository).findById(userId);
-        verifyNoInteractions(userMapper, userListMapper, passwordEncoder);
+        verifyNoMoreInteractions(userRepository);
+        verifyNoInteractions(userMapper, passwordEncoder);
     }
 
     @Test
-    void updateUser_restrictedUserNotActive_throwsIllegalStateException() {
+    void updateUser_restrictedUserNotToActive_throwsIllegalStateException() {
         UUID userId = UUID.randomUUID();
         UserDTOInput input = new UserDTOInput();
         input.setId(userId);
@@ -321,15 +603,21 @@ class UserServiceTests {
         User user = new User();
         user.setId(userId);
         user.setStatus(EntityStatus.RESTRICTED);
+        User currentUser = new User();
+        currentUser.setRole(UserRole.ROLE_ADMIN);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(authentication.getName()).thenReturn("admin@example.com");
+        when(userRepository.findByEmail("admin@example.com")).thenReturn(Optional.of(currentUser));
 
         IllegalStateException ex = assertThrows(IllegalStateException.class,
                 () -> userService.createUpdateUser(input));
 
         assertEquals("Cannot update restricted user. User id: " + userId, ex.getMessage());
         verify(userRepository).findById(userId);
-        verifyNoInteractions(userMapper, userListMapper, passwordEncoder);
+        verify(userRepository).findByEmail("admin@example.com");
+        verifyNoMoreInteractions(userRepository);
+        verifyNoInteractions(userMapper, passwordEncoder);
     }
 
     @Test
@@ -343,9 +631,14 @@ class UserServiceTests {
         user.setId(userId);
         user.setFname("Billy");
         user.setSname("Herrington");
+        user.setStatus(EntityStatus.ACTIVE);
+        User currentUser = new User();
+        currentUser.setRole(UserRole.ROLE_ADMIN);
         UserDTOOutput expectedDTO = new UserDTOOutput();
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(authentication.getName()).thenReturn("admin@example.com");
+        when(userRepository.findByEmail("admin@example.com")).thenReturn(Optional.of(currentUser));
         when(userRepository.save(user)).thenReturn(user);
         when(userMapper.toDTO(user)).thenReturn(expectedDTO);
 
@@ -355,6 +648,7 @@ class UserServiceTests {
         assertEquals("Billy", user.getFname());
         assertEquals("Herrington", user.getSname());
         verify(userRepository).findById(userId);
+        verify(userRepository).findByEmail("admin@example.com");
         verify(userRepository).save(user);
         verify(userMapper).toDTO(user);
         verifyNoInteractions(passwordEncoder);
@@ -369,15 +663,21 @@ class UserServiceTests {
         User user = new User();
         user.setId(userId);
         user.setStatus(EntityStatus.ACTIVE);
+        User currentUser = new User();
+        currentUser.setRole(UserRole.ROLE_ADMIN);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(authentication.getName()).thenReturn("admin@example.com");
+        when(userRepository.findByEmail("admin@example.com")).thenReturn(Optional.of(currentUser));
 
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                 () -> userService.createUpdateUser(input));
 
         assertEquals("User status cannot be changed back to CREATED", ex.getMessage());
         verify(userRepository).findById(userId);
-        verifyNoInteractions(userMapper, userListMapper, passwordEncoder);
+        verify(userRepository).findByEmail("admin@example.com");
+        verifyNoMoreInteractions(userRepository);
+        verifyNoInteractions(userMapper, passwordEncoder);
     }
 
     @Test
@@ -389,15 +689,21 @@ class UserServiceTests {
         User user = new User();
         user.setId(userId);
         user.setStatus(EntityStatus.ACTIVE);
+        User currentUser = new User();
+        currentUser.setRole(UserRole.ROLE_ADMIN);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(authentication.getName()).thenReturn("admin@example.com");
+        when(userRepository.findByEmail("admin@example.com")).thenReturn(Optional.of(currentUser));
 
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                 () -> userService.createUpdateUser(input));
 
         assertEquals("User status cannot be CLOSED", ex.getMessage());
         verify(userRepository).findById(userId);
-        verifyNoInteractions(userMapper, userListMapper, passwordEncoder);
+        verify(userRepository).findByEmail("admin@example.com");
+        verifyNoMoreInteractions(userRepository);
+        verifyNoInteractions(userMapper, passwordEncoder);
     }
 
     @Test
@@ -426,6 +732,7 @@ class UserServiceTests {
         verify(passwordEncoder).encode(newPassword);
         verify(userRepository).save(user);
         verify(userMapper).toDTO(user);
+        verifyNoMoreInteractions(userRepository, userMapper, passwordEncoder);
     }
 
     @Test
@@ -441,7 +748,8 @@ class UserServiceTests {
 
         assertEquals("User not found with id: " + userId, ex.getMessage());
         verify(userRepository).findById(userId);
-        verifyNoInteractions(passwordEncoder, userMapper, userListMapper);
+        verifyNoMoreInteractions(userRepository);
+        verifyNoInteractions(passwordEncoder, userMapper);
     }
 
     @Test
@@ -462,8 +770,8 @@ class UserServiceTests {
         assertEquals("Incorrect old password", ex.getMessage());
         verify(userRepository).findById(userId);
         verify(passwordEncoder).matches(oldPassword, "hashedOldPassword");
-        verifyNoInteractions(userMapper, userListMapper);
-        verify(passwordEncoder, never()).encode(anyString());
+        verifyNoMoreInteractions(userRepository, passwordEncoder);
+        verifyNoInteractions(userMapper);
     }
 
     @Test
@@ -484,8 +792,8 @@ class UserServiceTests {
         assertEquals("New password cannot be empty", ex.getMessage());
         verify(userRepository).findById(userId);
         verify(passwordEncoder).matches(oldPassword, "hashedOldPassword");
-        verifyNoInteractions(userMapper, userListMapper);
-        verify(passwordEncoder, never()).encode(anyString());
+        verifyNoMoreInteractions(userRepository, passwordEncoder);
+        verifyNoInteractions(userMapper);
     }
 
     @Test
@@ -506,8 +814,8 @@ class UserServiceTests {
         assertEquals("New password must be at least 8 characters long", ex.getMessage());
         verify(userRepository).findById(userId);
         verify(passwordEncoder).matches(oldPassword, "hashedOldPassword");
-        verifyNoInteractions(userMapper, userListMapper);
-        verify(passwordEncoder, never()).encode(anyString());
+        verifyNoMoreInteractions(userRepository, passwordEncoder);
+        verifyNoInteractions(userMapper);
     }
 
     @Test
@@ -523,7 +831,8 @@ class UserServiceTests {
 
         verify(userRepository).findById(userId);
         verify(userRepository).delete(user);
-        verifyNoInteractions(userMapper, userListMapper, passwordEncoder);
+        verifyNoMoreInteractions(userRepository);
+        verifyNoInteractions(userMapper, passwordEncoder);
     }
 
     @Test
@@ -537,7 +846,8 @@ class UserServiceTests {
 
         assertEquals("User not found with id: " + userId, ex.getMessage());
         verify(userRepository).findById(userId);
-        verifyNoInteractions(userMapper, userListMapper, passwordEncoder);
+        verifyNoMoreInteractions(userRepository);
+        verifyNoInteractions(userMapper, passwordEncoder);
     }
 
     @Test
@@ -554,7 +864,8 @@ class UserServiceTests {
 
         assertEquals("Cannot delete ACTIVE or RESTRICTED user. User id: " + userId, ex.getMessage());
         verify(userRepository).findById(userId);
-        verifyNoInteractions(userMapper, userListMapper, passwordEncoder);
+        verifyNoMoreInteractions(userRepository);
+        verifyNoInteractions(userMapper, passwordEncoder);
     }
 
     @Test
@@ -571,7 +882,26 @@ class UserServiceTests {
 
         assertEquals("Cannot delete ACTIVE or RESTRICTED user. User id: " + userId, ex.getMessage());
         verify(userRepository).findById(userId);
-        verifyNoInteractions(userMapper, userListMapper, passwordEncoder);
+        verifyNoMoreInteractions(userRepository);
+        verifyNoInteractions(userMapper, passwordEncoder);
+    }
+
+    @Test
+    void deleteUser_closedStatus_throwsIllegalStateException() {
+        UUID userId = UUID.randomUUID();
+        User user = new User();
+        user.setId(userId);
+        user.setStatus(EntityStatus.CLOSED);
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class,
+                () -> userService.deleteUser(userId));
+
+        assertEquals("Cant delete user with id: " + userId, ex.getMessage());
+        verify(userRepository).findById(userId);
+        verifyNoMoreInteractions(userRepository);
+        verifyNoInteractions(userMapper, passwordEncoder);
     }
 
     @Test
@@ -588,6 +918,111 @@ class UserServiceTests {
 
         assertEquals("Cant delete user with id: " + userId, ex.getMessage());
         verify(userRepository).findById(userId);
-        verifyNoInteractions(userMapper, userListMapper, passwordEncoder);
+        verifyNoMoreInteractions(userRepository);
+        verifyNoInteractions(userMapper, passwordEncoder);
+    }
+
+    @Test
+    void getByEmail_success() {
+        String email = "test@example.com";
+        User user = new User();
+        user.setEmail(email);
+
+        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+
+        User result = userService.getByEmail(email);
+
+        assertEquals(user, result);
+        verify(userRepository).findByEmail(email);
+        verifyNoMoreInteractions(userRepository);
+    }
+
+    @Test
+    void getByEmail_notFound_throwsIllegalArgumentException() {
+        String email = "test@example.com";
+
+        when(userRepository.findByEmail(email)).thenReturn(Optional.empty());
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> userService.getByEmail(email));
+
+        assertEquals("User not found with email: " + email, ex.getMessage());
+        verify(userRepository).findByEmail(email);
+        verifyNoMoreInteractions(userRepository);
+    }
+
+    @Test
+    void userDetailsService_loadUserByUsername_success() {
+        String email = "test@example.com";
+        User user = new User();
+        user.setEmail(email);
+
+        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+
+        UserDetailsService userDetailsService = userService.userDetailsService();
+        UserDetails result = userDetailsService.loadUserByUsername(email);
+
+        assertEquals(user, result);
+        verify(userRepository).findByEmail(email);
+        verifyNoMoreInteractions(userRepository);
+    }
+
+    @Test
+    void userDetailsService_loadUserByUsername_notFound_throwsIllegalArgumentException() {
+        String email = "test@example.com";
+
+        when(userRepository.findByEmail(email)).thenReturn(Optional.empty());
+
+        UserDetailsService userDetailsService = userService.userDetailsService();
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> userDetailsService.loadUserByUsername(email));
+
+        assertEquals("User not found with email: " + email, ex.getMessage());
+        verify(userRepository).findByEmail(email);
+        verifyNoMoreInteractions(userRepository);
+    }
+
+    @Test
+    void getCurrentUser_success() {
+        String email = "current@example.com";
+        User user = new User();
+        user.setEmail(email);
+
+        when(authentication.getName()).thenReturn(email);
+        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+
+        User result = userService.getCurrentUser();
+
+        assertEquals(user, result);
+        verify(userRepository).findByEmail(email);
+        verifyNoMoreInteractions(userRepository);
+    }
+
+    @Test
+    void getCurrentUser_notAuthenticated_throwsIllegalArgumentException() {
+        when(authentication.getName()).thenReturn(null);
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> userService.getCurrentUser());
+
+        assertEquals("User not found with email: null", ex.getMessage());
+        verify(userRepository).findByEmail(null);
+        verifyNoMoreInteractions(userRepository);
+    }
+
+    @Test
+    void getCurrentUser_userNotFound_throwsIllegalArgumentException() {
+        String email = "current@example.com";
+
+        when(authentication.getName()).thenReturn(email);
+        when(userRepository.findByEmail(email)).thenReturn(Optional.empty());
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> userService.getCurrentUser());
+
+        assertEquals("User not found with email: " + email, ex.getMessage());
+        verify(userRepository).findByEmail(email);
+        verifyNoMoreInteractions(userRepository);
     }
 }
