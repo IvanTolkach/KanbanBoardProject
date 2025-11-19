@@ -4,8 +4,11 @@ import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.task.TaskDTOInpu
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.task.TaskDTOOutput;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.task.TaskFilterDTO;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.usertask.UserTaskDTO;
+import dev.ivantolkach.kanban.KanbanBoardServer.application.service.exception.ForbiddenException;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.service.exception.NotFoundException;
+import dev.ivantolkach.kanban.KanbanBoardServer.application.service.exception.UnauthorizedException;
 import dev.ivantolkach.kanban.KanbanBoardServer.domain.common.enums.EntityStatus;
+import dev.ivantolkach.kanban.KanbanBoardServer.domain.common.enums.UserRole;
 import dev.ivantolkach.kanban.KanbanBoardServer.domain.common.validator.*;
 import dev.ivantolkach.kanban.KanbanBoardServer.domain.model.*;
 import dev.ivantolkach.kanban.KanbanBoardServer.infrastructure.mapper.task.TaskListMapper;
@@ -14,11 +17,11 @@ import dev.ivantolkach.kanban.KanbanBoardServer.infrastructure.mapper.usertask.U
 import dev.ivantolkach.kanban.KanbanBoardServer.infrastructure.persistence.repository.*;
 import dev.ivantolkach.kanban.KanbanBoardServer.infrastructure.persistence.specification.TaskSpecification;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -46,43 +49,28 @@ public class TaskService {
     private ProjectRepository projectRepository;
 
     @Autowired
+    private ProjectColumnService projectColumnService;
+
+    @Autowired
     private UserTaskMapper userTaskMapper;
 
     @Autowired
-    private ProjectColumnService projectColumnService;
-
-    public boolean existsById(UUID taskId) {
-        return taskRepository.existsById(taskId);
-    }
-
-    public List<TaskDTOOutput> getAllTasks() {
-        return taskListMapper.toDTOList(taskRepository.findAll());
-    }
+    private UserService userService;
 
     public List<TaskDTOOutput> getTasksByFilter(TaskFilterDTO filter) {
-        return taskListMapper.toDTOList(taskRepository.findAll(TaskSpecification.filterBy(filter)));
-    }
+        User currentUser = userService.getCurrentUser();
+        if (currentUser == null) {
+            throw new UnauthorizedException("User is not authenticated");
+        }
 
-    public Optional<TaskDTOOutput> getTaskById(UUID taskId) {
-        return taskRepository.findById(taskId).map(taskMapper::toDTO);
-    }
+        Specification<Task> spec = TaskSpecification.filterBy(filter);
 
-    public List<TaskDTOOutput> getTasksByProjectColumnId(UUID columnId) {
-        return taskListMapper.toDTOList(taskRepository.findTasksByColumnId(columnId));
-    }
+        if (currentUser.getRole() != UserRole.ROLE_ADMIN) {
+            spec = spec.and(TaskSpecification.accessibleBy(currentUser));
+        }
 
-    public List<TaskDTOOutput> getTasksByCreator(UUID userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(()->new NotFoundException("User not found with id: " + userId));
-
-        return taskListMapper.toDTOList(taskRepository.findByCreatedBy(user));
-    }
-
-    public List<TaskDTOOutput> getTasksByCreator(UUID userId, EntityStatus status) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(()->new NotFoundException("User not found with id: " + userId));
-
-        return taskListMapper.toDTOList(taskRepository.findByCreatedByAndStatus(user, status));
+        List<Task> tasks = taskRepository.findAll(spec);
+        return taskListMapper.toDTOList(tasks);
     }
 
     public TaskDTOOutput createUpdateTask(UUID projectId, TaskDTOInput taskDTOInput) {
@@ -95,6 +83,24 @@ public class TaskService {
         if (taskDTOInput.getId() != null) {
             task = taskRepository.findById(taskDTOInput.getId())
                     .orElseThrow(()->new NotFoundException("Task not found with id: " + taskDTOInput.getId()));
+
+            User currentUser = userService.getCurrentUser();
+            if (currentUser == null) {
+                throw new UnauthorizedException("User is not authenticated");
+            }
+
+            if (currentUser.getRole() != UserRole.ROLE_ADMIN) {
+                ProjectColumn column = task.getColumn();
+                Project project = column.getProject();
+
+                boolean isTaskAuthor = task.getCreatedBy().getId().equals(currentUser.getId());
+                boolean isColumnAuthor = column.getCreatedBy().getId().equals(currentUser.getId());
+                boolean isProjectAuthor = project.getCreatedBy().getId().equals(currentUser.getId());
+
+                if (! (isTaskAuthor || isColumnAuthor || isProjectAuthor)) {
+                    throw new ForbiddenException("Not allowed to create or edit this entity");
+                }
+            }
 
             if (task.getStatus() == EntityStatus.CLOSED && taskDTOInput.getStatus() != EntityStatus.ACTIVE) {
                 throw new IllegalStateException("Cannot update closed task. Task id: " + taskDTOInput.getId());
@@ -147,6 +153,11 @@ public class TaskService {
     }
 
     public UserTaskDTO attachUser(UUID taskId, UUID userId, UserTaskDTO userTaskDTO) {
+        User currentUser = userService.getCurrentUser();
+        if (currentUser == null) {
+            throw new UnauthorizedException("User is not authenticated");
+        }
+
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new NotFoundException("Task not found with id: " + taskId));
 
@@ -166,10 +177,18 @@ public class TaskService {
                 throw new IllegalStateException("User " + userId + " is already attached to task " + taskId);
             }
 
+            if (currentUser.getRole() != UserRole.ROLE_ADMIN) {
+                boolean isTaskAuthor = task.getCreatedBy().getId().equals(currentUser.getId());
+                boolean isTaskParticipant = userTaskRepository.existsByTaskIdAndUserIdAndIsAssigned(taskId, currentUser.getId(), true);
+                if (! (isTaskAuthor || isTaskParticipant)) {
+                    throw new ForbiddenException("Not allowed to create this entity");
+                }
+            }
+
             UserTask userTaskRelation = new UserTask();
             userTaskRelation.setTask(task);
             userTaskRelation.setUser(user);
-            userTaskRelation.setAssigned(true);
+            userTaskRelation.setIsAssigned(true);
             return userTaskMapper.toDTO(userTaskRepository.save(userTaskRelation));
 
         } else {
@@ -179,8 +198,20 @@ public class TaskService {
             }
 
             UserTask userTaskRelation = userTaskRepository.findByTaskIdAndUserId(taskId, userId);
+
+            if (currentUser.getRole() != UserRole.ROLE_ADMIN) {
+                ProjectColumn column = task.getColumn();
+                Project project = column.getProject();
+                boolean isTaskAuthor = task.getCreatedBy().getId().equals(currentUser.getId());
+                boolean isColumnAuthor = column.getCreatedBy().getId().equals(currentUser.getId());
+                boolean isProjectAuthor = project.getCreatedBy().getId().equals(currentUser.getId());
+                if (! (isTaskAuthor || isColumnAuthor || isProjectAuthor)) {
+                    throw new ForbiddenException("Not allowed to edit this entity");
+                }
+            }
+
             if (userTaskDTO.getIsAssigned() != null) {
-                userTaskRelation.setAssigned(userTaskDTO.getIsAssigned());
+                userTaskRelation.setIsAssigned(userTaskDTO.getIsAssigned());
             }
             if (userTaskDTO.getTimeConsumed() != null) {
                 int updatedTimeConsumed = userTaskRelation.getTimeConsumed() + userTaskDTO.getTimeConsumed();

@@ -1,9 +1,7 @@
 package dev.ivantolkach.kanban.KanbanBoardServer.infrastructure.persistence.specification;
 
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.column.ProjectColumnFilterDTO;
-import dev.ivantolkach.kanban.KanbanBoardServer.domain.model.Project;
-import dev.ivantolkach.kanban.KanbanBoardServer.domain.model.ProjectColumn;
-import dev.ivantolkach.kanban.KanbanBoardServer.domain.model.User;
+import dev.ivantolkach.kanban.KanbanBoardServer.domain.model.*;
 import jakarta.persistence.criteria.*;
 import org.springframework.data.jpa.domain.Specification;
 
@@ -64,6 +62,42 @@ public class ProjectColumnSpecification {
             }
 
             return cb.and(predicates.toArray(new Predicate[0]));
+        };
+    }
+
+    public static Specification<ProjectColumn> accessibleBy(User currentUser) {
+        return (root, query, cb) -> {
+            if (currentUser == null) {
+                return cb.isTrue(cb.literal(false));
+            }
+
+            Predicate predicate = cb.disjunction();
+
+            Join<ProjectColumn, Project> projectJoin = root.join("project");
+            predicate = cb.or(predicate, cb.equal(projectJoin.get("createdBy").get("id"), currentUser.getId()));
+
+            predicate = cb.or(predicate, cb.equal(root.get("createdBy").get("id"), currentUser.getId()));
+
+            Subquery<Task> taskAuthorSubquery = query.subquery(Task.class);
+            Root<Task> taskRoot = taskAuthorSubquery.from(Task.class);
+            taskAuthorSubquery.select(taskRoot);
+            taskAuthorSubquery.where(
+                    cb.equal(taskRoot.get("column").get("id"), root.get("id")),
+                    cb.equal(taskRoot.get("createdBy").get("id"), currentUser.getId())
+            );
+            predicate = cb.or(predicate, cb.exists(taskAuthorSubquery));
+
+            Subquery<UserTask> userTaskSubquery = query.subquery(UserTask.class);
+            Root<UserTask> userTaskRoot = userTaskSubquery.from(UserTask.class);
+            userTaskSubquery.select(userTaskRoot);
+            userTaskSubquery.where(
+                    cb.equal(userTaskRoot.get("task").get("column").get("id"), root.get("id")),
+                    cb.equal(userTaskRoot.get("user").get("id"), currentUser.getId()),
+                    cb.isTrue(userTaskRoot.get("isAssigned"))
+            );
+            predicate = cb.or(predicate, cb.exists(userTaskSubquery));
+
+            return predicate;
         };
     }
 }

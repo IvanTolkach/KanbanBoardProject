@@ -4,7 +4,6 @@ import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.project.ProjectD
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.project.ProjectDTOOutput;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.project.ProjectFilterDTO;
 import jakarta.validation.Valid;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -17,12 +16,12 @@ public interface ProjectEndpoint {
     );
 
     @PutMapping(ApiEndpoints.Project.BASE)
-    ResponseEntity<ProjectDTOOutput> createUpdateProject(
+    ProjectDTOOutput createUpdateProject(
             @Valid @RequestBody ProjectDTOInput project
     );
 
     @DeleteMapping(ApiEndpoints.Project.BY_ID)
-    ResponseEntity<Void> deleteProject(
+    void deleteProject(
             @PathVariable UUID projectId
     );
 }

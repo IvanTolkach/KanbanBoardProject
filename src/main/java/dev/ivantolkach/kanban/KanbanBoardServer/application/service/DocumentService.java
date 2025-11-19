@@ -2,20 +2,23 @@ package dev.ivantolkach.kanban.KanbanBoardServer.application.service;
 
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.document.DocumentDTOOutput;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.document.DocumentFilterDTO;
+import dev.ivantolkach.kanban.KanbanBoardServer.application.service.exception.ForbiddenException;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.service.exception.NotFoundException;
-import dev.ivantolkach.kanban.KanbanBoardServer.domain.model.Document;
-import dev.ivantolkach.kanban.KanbanBoardServer.domain.model.Task;
+import dev.ivantolkach.kanban.KanbanBoardServer.application.service.exception.UnauthorizedException;
+import dev.ivantolkach.kanban.KanbanBoardServer.domain.common.enums.UserRole;
+import dev.ivantolkach.kanban.KanbanBoardServer.domain.model.*;
 import dev.ivantolkach.kanban.KanbanBoardServer.infrastructure.mapper.document.DocumentListMapper;
 import dev.ivantolkach.kanban.KanbanBoardServer.infrastructure.mapper.document.DocumentMapper;
 import dev.ivantolkach.kanban.KanbanBoardServer.infrastructure.persistence.repository.DocumentRepository;
 import dev.ivantolkach.kanban.KanbanBoardServer.infrastructure.persistence.repository.TaskRepository;
+import dev.ivantolkach.kanban.KanbanBoardServer.infrastructure.persistence.repository.UserTaskRepository;
 import dev.ivantolkach.kanban.KanbanBoardServer.infrastructure.persistence.specification.DocumentSpecification;
 
-import org.hibernate.type.descriptor.DateTimeUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -24,7 +27,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -46,17 +48,55 @@ public class DocumentService {
     @Autowired
     private TaskRepository taskRepository;
 
+    @Autowired
+    private UserService userService;
+
+    @Autowired
+    private UserTaskRepository userTaskRepository;
+
     public boolean existsById(UUID documentId) {
         return documentRepository.existsById(documentId);
     }
 
     public List<DocumentDTOOutput> getDocumentsByFilter(DocumentFilterDTO filter) {
-        return documentListMapper.toDTOList(documentRepository.findAll(DocumentSpecification.filterBy(filter)));
+        User currentUser = userService.getCurrentUser();
+        if (currentUser == null) {
+            throw new UnauthorizedException("User is not authenticated");
+        }
+
+        Specification<Document> spec = DocumentSpecification.filterBy(filter);
+
+        if (currentUser.getRole() != UserRole.ROLE_ADMIN) {
+            spec = spec.and(DocumentSpecification.accessibleBy(currentUser));
+        }
+
+        List<Document> documents = documentRepository.findAll(spec);
+        return documentListMapper.toDTOList(documents);
     }
 
     public Resource downloadDocument(UUID documentId) {
+        User currentUser = userService.getCurrentUser();
+        if (currentUser == null) {
+            throw new UnauthorizedException("User is not authenticated");
+        }
+
         Document document = documentRepository.findById(documentId)
                 .orElseThrow(() -> new NotFoundException("Document not found with id: " + documentId));
+
+        if (currentUser.getRole() != UserRole.ROLE_ADMIN) {
+            Task task = document.getTask();
+            ProjectColumn column = task.getColumn();
+            Project project = column.getProject();
+
+            boolean isTaskAuthor = task.getCreatedBy().getId().equals(currentUser.getId());
+            boolean isTaskParticipant = userTaskRepository.existsByTaskIdAndUserIdAndIsAssigned(task.getId(), currentUser.getId(), true);
+            boolean isColumnAuthor = column.getCreatedBy().getId().equals(currentUser.getId());
+            boolean isProjectAuthor = project.getCreatedBy().getId().equals(currentUser.getId());
+
+            if (! (isTaskAuthor || isTaskParticipant || isColumnAuthor || isProjectAuthor)) {
+                throw new ForbiddenException("Not allowed to access this entity");
+            }
+        }
 
         Path filePath = Paths.get(document.getFilePath());
         Resource resource = new FileSystemResource(filePath);
@@ -69,8 +109,27 @@ public class DocumentService {
     }
 
     public DocumentDTOOutput uploadUpdateDocument(UUID taskId, UUID documentId, MultipartFile file) {
+        User currentUser = userService.getCurrentUser();
+        if (currentUser == null) {
+            throw new UnauthorizedException("User is not authenticated");
+        }
+
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new NotFoundException("Task not found with id: " + taskId));
+
+        if (currentUser.getRole() != UserRole.ROLE_ADMIN) {
+            ProjectColumn column = task.getColumn();
+            Project project = column.getProject();
+
+            boolean isTaskAuthor = task.getCreatedBy().getId().equals(currentUser.getId());
+            boolean isTaskParticipant = userTaskRepository.existsByTaskIdAndUserIdAndIsAssigned(task.getId(), currentUser.getId(), true);
+            boolean isColumnAuthor = column.getCreatedBy().getId().equals(currentUser.getId());
+            boolean isProjectAuthor = project.getCreatedBy().getId().equals(currentUser.getId());
+
+            if (! (isTaskAuthor || isTaskParticipant || isColumnAuthor || isProjectAuthor)) {
+                throw new ForbiddenException("Not allowed to create or edit this entity");
+            }
+        }
 
         if (documentId == null) {
             if (file.isEmpty()) {
@@ -105,6 +164,23 @@ public class DocumentService {
             Document existingDocument = documentRepository.findById(documentId)
                     .orElseThrow(() -> new NotFoundException("Document not found with id: " + documentId));
 
+            if (currentUser.getRole() != UserRole.ROLE_ADMIN) {
+                Task existingTask = existingDocument.getTask();
+                if (!existingTask.getId().equals(task.getId())) {
+                    ProjectColumn newColumn = task.getColumn();
+                    Project newProject = newColumn.getProject();
+
+                    boolean isNewTaskAuthor = task.getCreatedBy().getId().equals(currentUser.getId());
+                    boolean isNewTaskParticipant = userTaskRepository.existsByTaskIdAndUserIdAndIsAssigned(task.getId(), currentUser.getId(), true);
+                    boolean isNewColumnAuthor = newColumn.getCreatedBy().getId().equals(currentUser.getId());
+                    boolean isNewProjectAuthor = newProject.getCreatedBy().getId().equals(currentUser.getId());
+
+                    if (! (isNewTaskAuthor || isNewTaskParticipant || isNewColumnAuthor || isNewProjectAuthor)) {
+                        throw new ForbiddenException("Not allowed to edit this entity to new task");
+                    }
+                }
+            }
+
             try {
                 Files.deleteIfExists(Paths.get(existingDocument.getFilePath()));
 
@@ -121,13 +197,34 @@ public class DocumentService {
 
                 return documentMapper.toDTO(documentRepository.save(existingDocument));
             } catch (IOException e) {
-                throw new RuntimeException("Error while deleting or uploading file", e); }
+                throw new RuntimeException("Error while deleting or uploading file", e);
+            }
         }
     }
 
     public void deleteDocument(UUID documentId) {
+        User currentUser = userService.getCurrentUser();
+        if (currentUser == null) {
+            throw new UnauthorizedException("User is not authenticated");
+        }
+
         Document existingDocument = documentRepository.findById(documentId)
-                .orElseThrow(()->new NotFoundException("Document not found with id: " + documentId));
+                .orElseThrow(() -> new NotFoundException("Document not found with id: " + documentId));
+
+        if (currentUser.getRole() != UserRole.ROLE_ADMIN) {
+            Task task = existingDocument.getTask();
+            ProjectColumn column = task.getColumn();
+            Project project = column.getProject();
+
+            boolean isTaskAuthor = task.getCreatedBy().getId().equals(currentUser.getId());
+            boolean isTaskParticipant = userTaskRepository.existsByTaskIdAndUserIdAndIsAssigned(task.getId(), currentUser.getId(), true);
+            boolean isColumnAuthor = column.getCreatedBy().getId().equals(currentUser.getId());
+            boolean isProjectAuthor = project.getCreatedBy().getId().equals(currentUser.getId());
+
+            if (! (isTaskAuthor || isTaskParticipant || isColumnAuthor || isProjectAuthor)) {
+                throw new ForbiddenException("Not allowed to delete this entity");
+            }
+        }
 
         try {
             Files.deleteIfExists(Paths.get(existingDocument.getFilePath()));

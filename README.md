@@ -1,12 +1,12 @@
 # Kanban Board Project
-REST API для планирования задач.
+Kanban Board — это веб-приложение для управления задачами и проектами, основанное на принципах методологии Kanban. Оно позволяет командам и отдельным пользователям эффективно организовывать рабочий процесс и визуализировать поставленные задачи.
 
 ## Технологии
 - __Язык:__ Java 17
 - __Фреймворк:__ Spring Boot 3.5.3
 - __База данных:__ PostgreSQL 17
 - __Автоматизация работы с БД:__ JPA / Hibernate
-- __Авторизация:__ Spring Security 
+- __Авторизация:__ Spring Security / JWT
 - __Средство сборки:__ Gradle - Groovy
 - __Тестирование:__ JUnit 5, Mockito
 - __Документация API:__ Swagger (OpenAPI 3)
@@ -23,13 +23,12 @@ REST API для планирования задач.
 - Фильтрация всех сущностей по всем полям
 
 ## Статус проекта
-Проект находится в активной стадии разработки. Реализован базовый функционал.
+Проект находится в активной стадии разработки. Реализован базовый функционал, а также авторизация при помощи JWT.
 
 ## Требования
 - JDK 17
 - Gradle - Groovy 8.14.2
 - PostgreSQL 17
-- IntelliJ IDEA
 
 ## Установка и запуск
 1. __Клонируйте репозиторий:__
@@ -136,39 +135,34 @@ REST API для планирования задач.
       );
        ```
       Подробное описание структуры БД см. в Wiki "DB planning"
-3. __Добавьте пользователя-администратора в базу данных:__
-   - Это вынужденная временная мера до момента добавления регистрации пользователя и использования токенов.
-   ```sql
-   INSERT INTO public.app_user(id, fname, sname, "position", email, password, role, status, created_by)
-   VALUES ('e0178bc3-d477-4900-a89f-58734c4a8d6e', 'Billy', 'Herringron', 'Actor', 'BillyHerrington@gmail.com', '12345678', 1, 1, 'e0178bc3-d477-4900-a89f-58734c4a8d6e');
-   ```
-4. __Настройте конфигурацию:__
+
+3. __Настройте конфигурацию:__
    - Отредактируйте файл ``src/main/resources/application.properties``:
    ```properties
-   spring.application.name=KanbanBoardServer
+    spring.application.name=KanbanBoardServer
+    
+    # Подключение к БД
+    spring.datasource.url={your_database_url}
+    spring.datasource.driver-class-name=org.postgresql.Driver
+    spring.datasource.username={your_database_username}
+    spring.datasource.password={your_database_password}
+    
+    # Параметры Hibernate и JPA
+    spring.jpa.hibernate.ddl-auto=validate
+    spring.jpa.open-in-view=false
+    
+    # Параметры Swagger
+    springdoc.swagger-ui.path=/swagger-ui
+    springdoc.swagger-ui.enabled=true
+    
+    # Конфигурация файлов
+    upload.path=C:/Users/PC/Documents/kbn
+    spring.servlet.multipart.max-file-size=10MB
+    
+    # Ключ для подписи JWT
+    token.signing.key={your_token_signing_key}
+   ```
 
-   # Подключение к БД
-   spring.datasource.url=jdbc:postgresql://localhost/KanbanBoardDB
-   spring.datasource.username=postgres
-   spring.datasource.password=1111
-   
-   # Параметры Hibernate и JPA
-   spring.jpa.hibernate.ddl-auto=validate
-   spring.jpa.open-in-view=false
-   
-   # Параметры Swagger
-   springdoc.swagger-ui.path=/swagger-ui
-   springdoc.swagger-ui.enabled=true
-   
-   # Конфигурация файлов
-   upload.path=C:/Users/PC/Documents/kbn
-   spring.servlet.multipart.max-file-size=10MB
-   ```
-   - Для подключения к БД можно использовать настойки параметров подключения из IDE:
-   ```properties
-   spring.datasource.username=${DB_USERNAME}
-   spring.datasource.password=${DB_PASSWORD}
-   ```
 5. __Соберите проект:__
    ```
    ./gradlew clean build
@@ -207,6 +201,8 @@ REST API для планирования задач.
 - ``PUT /api/users`` — Создание/изменение пользователя.
 - ``PUT /api/users/{userId}/password`` — Изменение пароля пользователя.
 - ``DELETE /api/users/{userId}`` — Удаление пользователя.
+- ``POST /api/auth/sign-up`` — Регистрация в системе.
+- ``POST /api/auth/sign-in`` — Авторизация в систему.
 
 Подробное описание эндпоинтов см. в Wiki "API".
 
@@ -236,19 +232,21 @@ REST API для планирования задач.
     ```
     ./gradlew test
     ```
-- __Покрытие:__ бизнес-логика приложения (сервисы).
+- __Покрытие:__
+  - Весь сервис: 62% классов, 55% методов, 61% линий, 58% веток
+  - Слой application: 100% классов, 100% методов, 100% линий, 87% веток
+  - Слой domain: 100% классов, 68% методов, 56% линий, 30% веток
+  - Слой infrastructure: 84% классов, 50% методов, 9% линий, 0% веток
+  - Слой presentation: 0% классов, 0% методов, 0% линий, 100% веток
 
 ## Ограничения
-- Для тестирования и работы приложения в базу данных ___обязан___ быть загружен пользователь-админ с id: e0178bc3-d477-4900-a89f-58734c4a8d6e. Это необходимая мера до полной реализации регистрации пользователя и получения токенов пользователей.
-- Для выполнения юнит-тестов необходимо явно указывать данные для подключения к БД.
+- Для выполнения юнит-тестирования необходимо явно указывать данные для подключения к БД и ключ для подписи JWT.
 
 ## Планы развития
 - Написание юнит-тестов для всего приложения
 - Перевод сохранения файлов с локальной машины на облачный сервер
 - Разработка пользовательской части приложения (frontend)
-- Добавление регистрации пользователей с получением и работой с токенами
 - Добавление аватарок пользователя
-- Разбитие бизнес-логики по ролям пользователей
 - Использование Liquibase
 - Ведение документации по проекту
 - Подключение Docker

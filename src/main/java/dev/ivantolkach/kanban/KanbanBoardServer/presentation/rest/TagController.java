@@ -7,7 +7,6 @@ import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.tasktag.TaskTagD
 import dev.ivantolkach.kanban.KanbanBoardServer.application.service.TagService;
 import dev.ivantolkach.kanban.KanbanBoardServer.presentation.common.TagEndpoint;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -30,24 +29,22 @@ public class TagController implements TagEndpoint {
     }
 
     @Override
-    public ResponseEntity<TagDTOOutput> createUpdateTag(TagDTOInput tag) {
-        return ResponseEntity.ok(tagService.createUpdateTag(tag));
+    public TagDTOOutput createUpdateTag(TagDTOInput tag) {
+        return tagService.createUpdateTag(tag);
     }
 
     @Override
-    public ResponseEntity<TaskTagDTO> attachTag(UUID taskId, UUID tagId) {
-        return ResponseEntity.ok(tagService.attachTag(taskId, tagId));
+    public TaskTagDTO attachTag(UUID taskId, UUID tagId) {
+        return tagService.attachTag(taskId, tagId);
     }
 
     @Override
-    public ResponseEntity<Void> deleteTaskTag(UUID taskTagId) {
+    public void deleteTaskTag(UUID taskTagId) {
         tagService.deleteTaskTag(taskTagId);
-        return ResponseEntity.noContent().build();
     }
 
     @Override
-    public ResponseEntity<Void> deleteTag(UUID tagId) {
+    public void deleteTag(UUID tagId) {
         tagService.deleteTag(tagId);
-        return ResponseEntity.noContent().build();
     }
 }

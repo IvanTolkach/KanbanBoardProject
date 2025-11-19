@@ -30,5 +30,5 @@ public class UserTask {
     private int timeConsumed;
 
     @Column(name = "is_assigned", columnDefinition = "boolean default true", nullable = false)
-    private boolean isAssigned = true;
+    private Boolean isAssigned = true;
 }

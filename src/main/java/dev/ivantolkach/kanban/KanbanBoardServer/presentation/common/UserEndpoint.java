@@ -4,7 +4,6 @@ import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.user.UserDTOInpu
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.user.UserDTOOutput;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.user.UserFilterDTO;
 import jakarta.validation.Valid;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -16,20 +15,23 @@ public interface UserEndpoint {
             @RequestBody UserFilterDTO filter
     );
 
+    @GetMapping(ApiEndpoints.User.CURRENT_USER)
+    UserDTOOutput getCurrentUser();
+
     @PutMapping(ApiEndpoints.User.BASE)
-    ResponseEntity<UserDTOOutput> createUpdateUser(
+    UserDTOOutput createUpdateUser(
             @Valid @RequestBody UserDTOInput user
     );
 
     @PutMapping(ApiEndpoints.User.CHANGE_PASSWORD)
-    ResponseEntity<UserDTOOutput> changeUserPassword(
+    UserDTOOutput changeUserPassword(
             @PathVariable UUID userId,
             @RequestParam String oldPassword,
             @RequestParam String newPassword
     );
 
     @DeleteMapping(ApiEndpoints.User.BY_ID)
-    ResponseEntity<Void> deleteUser(
+    void deleteUser(
             @PathVariable UUID userId
     );
 }

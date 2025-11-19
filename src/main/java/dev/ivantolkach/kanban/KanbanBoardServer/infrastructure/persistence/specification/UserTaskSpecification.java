@@ -39,4 +39,22 @@ public class UserTaskSpecification {
             return cb.and(predicates.toArray(new Predicate[0]));
         };
     }
+
+    public static Specification<UserTask> accessibleBy(User currentUser) {
+        return (root, query, cb) -> {
+            if (currentUser == null) {
+                return cb.isTrue(cb.literal(false));
+            }
+
+            Subquery<Task> taskSubquery = query.subquery(Task.class);
+            Root<Task> taskRoot = taskSubquery.from(Task.class);
+            taskSubquery.select(taskRoot);
+            taskSubquery.where(
+                    cb.equal(taskRoot.get("id"), root.get("task").get("id")),
+                    TaskSpecification.accessibleBy(currentUser).toPredicate(taskRoot, (CriteriaQuery<?>) taskSubquery.getParent(), cb)
+            );
+
+            return cb.exists(taskSubquery);
+        };
+    }
 }

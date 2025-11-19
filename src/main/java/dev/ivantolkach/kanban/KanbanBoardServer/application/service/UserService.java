@@ -3,6 +3,8 @@ package dev.ivantolkach.kanban.KanbanBoardServer.application.service;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.user.UserDTOInput;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.user.UserDTOOutput;
 import dev.ivantolkach.kanban.KanbanBoardServer.application.dto.user.UserFilterDTO;
+import dev.ivantolkach.kanban.KanbanBoardServer.application.service.exception.ForbiddenException;
+import dev.ivantolkach.kanban.KanbanBoardServer.application.service.exception.UnauthorizedException;
 import dev.ivantolkach.kanban.KanbanBoardServer.domain.common.enums.EntityStatus;
 import dev.ivantolkach.kanban.KanbanBoardServer.domain.common.enums.UserRole;
 import dev.ivantolkach.kanban.KanbanBoardServer.domain.model.User;
@@ -11,11 +13,12 @@ import dev.ivantolkach.kanban.KanbanBoardServer.infrastructure.mapper.user.UserM
 import dev.ivantolkach.kanban.KanbanBoardServer.infrastructure.persistence.repository.UserRepository;
 import dev.ivantolkach.kanban.KanbanBoardServer.infrastructure.persistence.specification.UserSpecification;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -33,24 +36,8 @@ public class UserService {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
-    public boolean existsById(UUID userId) {
-        return userRepository.existsById(userId);
-    }
-
-    public List<UserDTOOutput> getAllUsers() {
-        return userListMapper.toDTOList(userRepository.findAll());
-    }
-
     public List<UserDTOOutput> getUsersByFilter(UserFilterDTO filter) {
         return userListMapper.toDTOList(userRepository.findAll(UserSpecification.filterBy(filter)));
-    }
-
-    public Optional<UserDTOOutput> getUserById(UUID userId) {
-        return userRepository.findById(userId).map(userMapper::toDTO);
-    }
-
-    public UserDTOOutput getUserByEmail(String email) {
-        return userMapper.toDTO(userRepository.findByEmail(email));
     }
 
     public UserDTOOutput createUpdateUser(UserDTOInput userDTOInput) {
@@ -60,6 +47,17 @@ public class UserService {
         if (userDTOInput.getId() != null) {
             user = userRepository.findById(userDTOInput.getId())
                     .orElseThrow(()->new IllegalArgumentException("User not found with id: " + userDTOInput.getId()));
+
+            User currentUser = getCurrentUser();
+            if (currentUser == null) {
+                throw new UnauthorizedException("User is not authenticated");
+            }
+
+            if (!(currentUser.getRole() == UserRole.ROLE_ADMIN)) {
+                if (!(user.getId().equals(currentUser.getId()))) {
+                    throw new ForbiddenException("Not allowed to edit this entity");
+                }
+            }
 
             if (user.getStatus() == EntityStatus.RESTRICTED && userDTOInput.getStatus() != EntityStatus.ACTIVE) {
                 throw new IllegalStateException("Cannot update restricted user. User id: " + userDTOInput.getId());
@@ -81,6 +79,10 @@ public class UserService {
                 user.setBirthDate(userDTOInput.getBirthDate());
             }
             if (!(userDTOInput.getStatus() == null)) {
+
+                if (currentUser.getRole() != UserRole.ROLE_ADMIN) {
+                    throw new ForbiddenException("Not allowed to edit status of this entity");
+                }
 
                 if (userDTOInput.getStatus() == EntityStatus.CREATED) {
                     throw new IllegalArgumentException("User status cannot be changed back to CREATED");
@@ -109,7 +111,7 @@ public class UserService {
             if (userDTOInput.getPosition() == null || userDTOInput.getPosition().isBlank()) {
                 throw new IllegalArgumentException("Position cannot be empty");
             }
-            if (userRepository.findByEmail(userDTOInput.getEmail()) != null) {
+            if (userRepository.findByEmail(userDTOInput.getEmail()).isPresent()) {
                 throw new IllegalArgumentException("User with the same email already exist");
             }
             if (userDTOInput.getStatus() == EntityStatus.CLOSED) {
@@ -119,7 +121,7 @@ public class UserService {
             user = userMapper.toUser(userDTOInput);
             user.setStatus(userDTOInput.getStatus() != null ? userDTOInput.getStatus() : EntityStatus.CREATED);
             String hashedPassword = passwordEncoder.encode(user.getPassword());
-            user.setRole(UserRole.CLIENT);
+            user.setRole(UserRole.ROLE_CLIENT);
             user.setPassword(hashedPassword);
         }
 
@@ -162,5 +164,20 @@ public class UserService {
         }
 
         throw new IllegalStateException("Cant delete user with id: " + userId);
+    }
+
+    public User getByEmail(String email) {
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("User not found with email: " + email));
+
+    }
+
+    public UserDetailsService userDetailsService() {
+        return this::getByEmail;
+    }
+
+    public User getCurrentUser() {
+        var username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return getByEmail(username);
     }
 }

@@ -6,7 +6,8 @@ import dev.ivantolkach.kanban.KanbanBoardServer.application.service.DocumentServ
 import dev.ivantolkach.kanban.KanbanBoardServer.presentation.common.DocumentEndpoint;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -25,18 +26,18 @@ public class DocumentController implements DocumentEndpoint {
     }
 
     @Override
-    public ResponseEntity<Resource> downloadDocument(UUID documentId) {
-        return ResponseEntity.ok(documentService.downloadDocument(documentId));
+    public Resource downloadDocument(UUID documentId) {
+        return documentService.downloadDocument(documentId);
     }
 
     @Override
-    public ResponseEntity<DocumentDTOOutput> uploadUpdateDocument(UUID taskId, UUID documentId, MultipartFile file) {
-        return ResponseEntity.ok(documentService.uploadUpdateDocument(taskId, documentId, file));
+    public DocumentDTOOutput uploadUpdateDocument(UUID taskId, UUID documentId, MultipartFile file) {
+        return documentService.uploadUpdateDocument(taskId, documentId, file);
     }
 
     @Override
-    public ResponseEntity<Void> deleteDocument(UUID documentId) {
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteDocument(UUID documentId) {
         documentService.deleteDocument(documentId);
-        return ResponseEntity.noContent().build();
     }
 }
